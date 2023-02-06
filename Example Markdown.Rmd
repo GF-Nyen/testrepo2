@@ -2,10 +2,120 @@
 Title: "This was made by Gabe"
 output: html_document
 date: "2023-01-25"
-## I am trying to make a change here to read if it works.
-h <- c(1,2,3)
-k <- c(2,4,5)
-print(h+k)
 ---
-#Trying to push again.
-print (h*k)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+I am trying to make a change here to read if it works.
+
+```{r}
+library(tidyverse)
+library(sf)
+library(forcats)
+library(rnaturalearth)
+library(kknn)
+
+```
+
+
+```{r}
+# Create a shorthand reference to Central European CRS
+  crs_etrs = "+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs"
+```
+
+
+```{r}
+  admin1_10 <- ne_download(scale = 10, 
+                           type = 'states', 
+                           returnclass = 'sf',
+                           category = 'cultural')
+```
+
+```{r}
+  german_st <- admin1_10 %>%
+                filter(admin == 'Germany') %>%
+                  st_transform(crs_etrs)
+```
+
+
+
+```{r}
+  rm(admin1_10)
+# View the German states
+  ggplot(german_st) +
+    geom_sf(fill="white") +
+    geom_sf_label(aes(label=name_en), size=3) +
+    labs(title="English names for German states")
+# Dissolve internal boundaries 
+  germany <- 
+    german_st %>%
+      group_by(iso_a2) %>% 
+      summarize() 
+```
+
+
+```{r}
+    lt_url = "https://raw.githubusercontent.com/devanmcg/categorical-spatial-interpolation/master/analysis/input/pronunciations.csv"
+    lookup_table <- read_csv(lt_url,
+                             col_names = c("pronunciation", 
+                                           "phrase", 
+                                           "verbatim", 
+                                           "nil")) %>% 
+                      filter(phrase == 7) # only the phrase we need
+  # Survey responses
+    resp_url = "https://github.com/devanmcg/categorical-spatial-interpolation/blob/master/analysis/input/phrase_7.csv?raw=true"  
+    responses <- read_csv(resp_url)
+```
+
+
+```{r}
+ responses <- 
+    responses %>%
+      left_join(lookup_table, 
+                by = c("pronunciation_id" = "pronunciation")) %>% 
+        select(lat, lng, verbatim) %>% 
+          rename(pronunciation_id = verbatim) %>% 
+            mutate(pronunciation_id = as.factor(pronunciation_id))
+```
+
+```{r}
+    responses <-  
+      responses %>%
+      st_as_sf(coords = c("lng", "lat"),
+               crs = 4326) %>%  
+        st_transform(crs_etrs)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+attach(HEMIMESS)
+ if (!require("pacman")) install.packages("pacman")
+  pacman::p_load(tidyverse, sf, kknn)
+
+install.packages("arcgisbinding")
+install.packages("Rtools")
+
+ install.packages("arcgisbinding", repos="https://r.esri.com", type="win.binary")
+library(arcgisbinding) 
+arc.check_product()
+```
+

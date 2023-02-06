@@ -1,0 +1,38 @@
+---
+title: "GEOHEMI"
+output: html_document
+date: "2023-02-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+library(forcats)
+library(rnaturalearth)
+library(kknn)
+
+```
+## Stand ID is where the overlap betwen the two data sets lies.##
+```{r}
+
+print(band_members)
+print(band_instruments)
+band_members %>% left_join(band_instruments)
+band_members %>% full_join(band_instruments)
+```
+```{r}
+colnames(LAT.LONGS)[4]  <- "Plot.ID"    # change column name for x column
+
+inner_join(HEMIMESS,LAT.LONGS, by=c("Plot.ID")) # Joined the two data sets matched between Plot.ID
+```
+
+
+
+
+
+
+
