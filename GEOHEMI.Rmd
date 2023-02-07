@@ -10,28 +10,63 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library("ggplot2")
+theme_set(theme_bw()) #this sets the map theme in ggplot to dark on light
 library(sf)
 library(forcats)
 library(rnaturalearth)
+library(rnaturalearthdata)
 library(kknn)
+library("ggspatial")
 
 ```
+
+```{r}
+world <- ne_countries(scale = "Medium", returnclass = "sf")
+class(world)
+
+(sites <- data.frame(longitude = c(-80.144005, -80.109), latitude = c(26.479005, 
+    26.83)))
+
+ggplot(data = world) +
+    geom_sf() +
+    geom_point(data = sites, aes(x = longitude, y = latitude), size = 4, 
+        shape = 23, fill = "darkred") +
+    coord_sf(xlim = c(-88, -78), ylim = c(24.5, 33), expand = TRUE)
+```
+
+
+
+
 ## Stand ID is where the overlap betwen the two data sets lies.##
-```{r}
 
-print(band_members)
-print(band_instruments)
-band_members %>% left_join(band_instruments)
-band_members %>% full_join(band_instruments)
-```
 ```{r}
-colnames(LAT.LONGS)[4]  <- "Plot.ID"    # change column name for x column
+colnames(LAT.LONGS)[4]  <- "Plot.ID"    # change column name for columns to match under Plot.ID
 
-inner_join(HEMIMESS,LAT.LONGS, by=c("Plot.ID")) # Joined the two data sets matched between Plot.ID
+cleandf <-inner_join(HEMIMESS,LAT.LONGS, by=c("Plot.ID")) # Joined the two data sets matched between Plot.ID
+print(cleandf)
 ```
 
 
+```{r}
+##This chunk is for pruning down the dataframe
 
+df1 <- select(cleandf, StandID.x, Plot.ID, X, Y, X..Site.Open, LAI.4Ring) #Here I selected the useful data
+print(df1)
+```
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+class(world) 
+
+(sites <- data.frame(longitude = c(select(df1, 2)), latitude = c(select(df1, 3))))
+
+ggplot(data = world) + # this is where you put the shapefile of the jones center/ stands
+    geom_sf() +
+    geom_point(data = df1, aes(x = X, y = Y), size = 4, 
+        shape = 23, fill = "darkred") +
+    coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = TRUE)
+```
 
 
 
