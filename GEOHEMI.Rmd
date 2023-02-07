@@ -53,21 +53,74 @@ print(cleandf)
 
 df1 <- select(cleandf, StandID.x, Plot.ID, X, Y, X..Site.Open, LAI.4Ring) #Here I selected the useful data
 print(df1)
+
+
+```
+```{r}
+library(rgdal)
+shape <- readOGR(dsn = ".", layer = "twingates.shp")
 ```
 
+
 ```{r}
-world <- ne_countries(scale = "medium", returnclass = "sf")
-class(world) 
+#TEST CHUNK THIS ONE WORKS!
+
+library("sf")
+
+
+aoi_boundary <- st_read(
+  "C:/Users/gnyen/Desktop/SHPS/twingates.shp") #this one points to the file and reads it.
 
 (sites <- data.frame(longitude = c(select(df1, 2)), latitude = c(select(df1, 3))))
 
-ggplot(data = world) + # this is where you put the shapefile of the jones center/ stands
+ggplot(data = aoi_boundary) + # this is where you put the shapefile of the jones center/ stands #JC is where "world" was
     geom_sf() +
     geom_point(data = df1, aes(x = X, y = Y), size = 4, 
         shape = 23, fill = "darkred") +
-    coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = TRUE)
+       coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = FALSE)
 ```
 
 
+
+```{r}
+#attach
+#JONES_AOI1 <-  
+library("sf")
+ # shapename <- read_sf('~Desktop\Forestry From Josh\Plantation data\forestry\maps\data\archive\Twin Gates')
+
+##shape <- read_sf(dsn = "C:/Users/gnyen/Desktop/Forestry From Josh/Plantation data/forestry/maps/data/archive/Twin Gates", layer = "twingates.shp")
+#shapefile located @ --> (system.file("C:/Users/gnyen/Desktop/SHPS/twingates.shp"))
+
+aoi_boundary <- st_read(
+  "C:/Users/gnyen/Desktop/SHPS/twingates.shp") #this one points to the file and reads it.
+
+ world <- ne_countries(scale = "medium", returnclass = "sf") class(world) 
+
+(sites <- data.frame(longitude = c(select(df1, 2)), latitude = c(select(df1, 3))))
+
+ggplot(data = world + # this is where you put the shapefile of the jones center/ stands #JC is where "world" was
+    geom_sf() +
+    geom_point(data = df1, aes(x = X, y = Y), size = 4, 
+        shape = 23, fill = "darkred") +
+    coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = FALSE)
+
+```
+
+```{r} 
+## another test chunk to fix the one above
+library("sf")
+
+
+aoi_boundary <- st_read(
+  "C:/Users/gnyen/Desktop/SHPS/twingates.shp") #this one points to the file and reads it.
+
+(sites <- data.frame(longitude = c(select(df1, 2)), latitude = c(select(df1, 3))))
+
+ggplot(data = aoi_boundary, size = 3, color = black, fill = "cyan1") + # this is where you put the shapefile of the jones center/ stands #JC is where "world" was
+    geom_sf() +
+    geom_point(data = df1, aes(x = X, y = Y), size = 4, 
+        shape = 23, fill = "darkred") +
+       coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = FALSE)
+```
 
 
