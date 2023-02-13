@@ -24,23 +24,6 @@ library(terra)
 
 ```
 
-```{r}
-world <- ne_countries(scale = "Medium", returnclass = "sf")
-class(world)
-
-(sites <- data.frame(longitude = c(-80.144005, -80.109), latitude = c(26.479005, 
-    26.83)))
-
-ggplot(data = world) +
-    geom_sf() +
-    geom_point(data = sites, aes(x = longitude, y = latitude), size = 4, 
-        shape = 23, fill = "darkred") +
-    coord_sf(xlim = c(-88, -78), ylim = c(24.5, 33), expand = TRUE)
-```
-
-
-
-
 ## Stand ID is where the overlap betwen the two data sets lies.##
 
 ```{r}
@@ -49,7 +32,6 @@ colnames(LAT.LONGS)[4]  <- "Plot.ID"    # change column name for columns to matc
 cleandf <-inner_join(HEMIMESS,LAT.LONGS, by=c("Plot.ID")) # Joined the two data sets matched between Plot.ID
 print(cleandf)
 ```
-
 
 ```{r}
 ##This chunk is for pruning down the dataframe
@@ -62,57 +44,6 @@ print(df1)
 ```{r}
 library(rgdal)
 shape <- readOGR(dsn = ".", layer = "twingates.shp")
-```
-
-
-```{r}
-#TEST CHUNK THIS ONE WORKS!
-
-library("sf")
-#new
-library("sf")
-setwd("C:/Users/gnyen/Desktop/ceststands")
-SHPFILE1 <- sf::st_read("estab_outline.shp")
-(ggplot(SHPFILE1) 
-  geom_sf(aes(fill = AREA))
-#new
-
-aoi_boundary <- st_read(
-  "C:/Users/gnyen/Desktop/SHPS/twingates.shp") #this one points to the file and reads it.
-
-(sites <- data.frame(longitude = c(select(df1, 2)), latitude = c(select(df1, 3))))
-
-ggplot(data = SHPFILE1) + # this is where you put the shapefile of the jones center/ stands #JC is where "world" was
-    geom_sf() +
-    geom_point(data = df1, aes(x = X, y = Y), size = 4, 
-        shape = 23, fill = "darkred") +
-       coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = FALSE)
-```
-
-
-
-```{r}
-#attach
-#JONES_AOI1 <-  
-library("sf")
- # shapename <- read_sf('~Desktop\Forestry From Josh\Plantation data\forestry\maps\data\archive\Twin Gates')
-
-##shape <- read_sf(dsn = "C:/Users/gnyen/Desktop/Forestry From Josh/Plantation data/forestry/maps/data/archive/Twin Gates", layer = "twingates.shp")
-#shapefile located @ --> (system.file("C:/Users/gnyen/Desktop/SHPS/twingates.shp"))
-
-aoi_boundary <- st_read(
-  "C:/Users/gnyen/Desktop/SHPS/twingates.shp") #this one points to the file and reads it.
-
- world <- ne_countries(scale = "medium", returnclass = "sf") class(world) 
-
-(sites <- data.frame(longitude = c(select(df1, 2)), latitude = c(select(df1, 3))))
-
-ggplot(data = world + # this is where you put the shapefile of the jones center/ stands #JC is where "world" was
-    geom_sf() +
-    geom_point(data = df1, aes(x = X, y = Y), size = 4, 
-        shape = 23, fill = "darkred") +
-    coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = FALSE)
-
 ```
 
 ```{r} 
@@ -131,35 +62,6 @@ ggplot(data = aoi_boundary, size = 3, color = black, fill = "cyan1") + # this is
         shape = 23, fill = "darkred") +
        coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = FALSE)
 ```
-
-```{r}
-#TEST CHUNK THIS ONE WORKS! Files are named estab_outline and located in ceststands folder on desktop
-myEDGE <- readOGR(
-  dsn= paste0(getwd(), "C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") ,
-  layer= "[[1]]",
-  verbose = FALSE
-)
-
-aoi_boundary <- st_read(
-  "C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") #this one points to the file and reads it.
-edge <- pull(aoi_boundary, geometry)
-print
-print(edge)
-
-(sites <- data.frame(longitude = c(select(df1, 2)), latitude = c(select(df1, 3))))
-
-ggplot(data = edge) + # this is where you put the shapefile of the jones center/ stands #JC is where "world" was
-   
-    geom_sf(data = edge) +
-    geom_point(data = df1, aes(x = X, y = Y), size = 1, 
-        shape = 23, fill = "darkred") +
-       coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = FALSE)
-
-summary(edge)
-```
-
-
-
 ```{r} 
 #this works to plot the plots!!!
 library(sf)
@@ -179,41 +81,11 @@ st_geometry_type(aoi)
 new_pts <- select(GISPOINTS, StandID, PlotID, X_LAT, Y_LONG,) #Here I selected the useful data
 print(new_pts)
 
-
 ```
 
 
 
-```{r} 
 
-library("sf")
-setwd("C:/Users/gnyen/Desktop/ceststands")
-SHPFILE1 <- sf::st_read("estab_outline.shp")
-ggplot(SHPFILE1) +
-  geom_sf(aes(fill = AREA))
-
-setwd("C:/Users/gnyen/Desktop/ceststands")
-aoi <- st_read("estab_outline.shp")
-plot(aoi$geometry)
-st_geometry_type(aoi)
-
-aoi_boundary <- st_read(
-  "C:/Users/gnyen/Desktop/SHPS/twingates.shp") #this one points to the file and reads it.
-
-
-
-
-(sites <- data.frame(longitude = c(select(df1, 2)), latitude = c(select(df1, 3))))
-ggplot(SHPFILE1) 
-ggplot(data = aoi) + # this is where you put the shapefile of the jones center/ stands #JC is where "world" was
-    geom_sf() +
-
-    geom_point(data = GISPOINTS, aes(x = X_LAT, y = Y_LONG), size = 8, 
-        shape = 23, fill = "darkred") +
-       coord_sf(xlim = c(-84.40, -84.51), ylim = c(31.185, 31.24), expand = FALSE)
-
-
-```
 ```{r}
 
 library("sf")
@@ -223,16 +95,131 @@ ggplot(SHPFILE1) +
   geom_sf(aes()) +
  geom_point(data = GISPOINTS, aes(x = X_LAT, y = Y_LONG), size = .5, 
         shape = 23, fill = "darkred")
-       
-
-
-
-
-
-
-
-
-
-
+      
 ```
 
+```{r}
+
+library("sf")
+
+
+
+   # change column name for columns to match under Plot.ID
+colnames(GISPOINTS)[3]  <- "Plot.ID"
+Allpts <-inner_join(cleandf, GISPOINTS, by=c("Plot.ID")) # Joined the two data sets matched between Plot.ID
+print(Allpts)
+
+
+
+
+setwd("C:/Users/gnyen/Desktop/ceststands")
+SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") %>% mutate(stand_id = 1:n()) 
+
+
+
+
+layer1 <- ggplot(SHPFILE1) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = Allpts , aes(x = X_LAT, y = Y_LONG, alpha = X..Cnpy.Open, color= X..Cnpy.Open))
+
+     
+
+mid<- median(Allpts$X..Cnpy.Open)
+layer1+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" )
+                     
+
+#Adam changes
+stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)
+stand_1_plots <- Allpts %>% filter(StandID == 3)
+
+(layer1_stand_3 <- ggplot(stand_1_shp) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = stand_1_plots, aes(x = X_LAT, y = Y_LONG, alpha = X..Cnpy.Open, color= X..Cnpy.Open)))
+
+     
+
+mid<- median(Allpts$X..Cnpy.Open)
+(layer1_stand_3+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" ))
+
+
+
+#new stuff here
+
+#plot_buff <- SHPFILE1 %>% st_buffer(dist= 1000)
+
+width_in_pixels = 100 # 300 is better but slower 
+  # dx is the width of a grid cell in meters
+    dx <- ceiling( (st_bbox(stand_1_shp)["xmax"] - 
+                    st_bbox(stand_1_shp)["xmin"]) / width_in_pixels)
+  # dy is the height of a grid cell in meters
+  # because we use quadratic grid cells, dx == dy
+  dy = dx
+  # calculate the height in pixels of the resulting grid
+  height_in_pixels <- floor( (st_bbox(stand_1_shp)["ymax"] - 
+                              st_bbox(stand_1_shp)["ymin"]) / dy)
+# Make the grid   
+  grid <- st_make_grid(stand_1_shp, 
+                       cellsize = dx,
+                       n = c(width_in_pixels, height_in_pixels),
+                       what = "centers")
+
+test <- st_as_sf(stand_1_plots, coords = c("X", "Y"))
+
+#plot_buff
+  # Prepare data for interpolation
+  # Create tibble of the German responses sf object
+    cnpy_open_input <- test %>%
+                    tibble(cnpy_open = .$X..Cnpy.Open, 
+                             lon = st_coordinates(.)[, 1], 
+                             lat = st_coordinates(.)[, 2]) %>%
+                      select(cnpy_open, lon, lat)
+    
+        cnpy_open_input_GN <- test %>%
+                    tibble(cnpy_open = .$X..Cnpy.Open, 
+                             lon = st_coordinates(.)[, 1], 
+                             lat = st_coordinates(.)[, 2]) %>%
+                      select(cnpy_open, lon, lat)
+
+    
+knn = 1000
+    cnpy_open_output <- data.frame(cnpy_open = as.factor(NA), 
+                              lon = st_coordinates(grid)[, 1], 
+                              lat = st_coordinates(grid)[, 2])
+    
+  
+    
+            cnpy_open_output_kknn <- kknn::kknn(cnpy_open ~ ., 
+                               train = cnpy_open_input, 
+                               test = cnpy_open_output, 
+                               kernel = "gaussian",  
+                               k = knn)  
+            
+            
+     # Transform interpolation tibble to sf
+    dialects_raster <- st_as_sf(stand_1_plots, 
+                                coords = c("X", "Y"),
+                                crs = crs_etrs,
+                                remove = F)
+    
+    
+
+  # Crop to Germany
+    germ_rast <- 
+      dialects_raster %>%
+        st_intersection(germany)
+    
+    
+      # Basic view of rasterized data
+    ggplot() + 
+      geom_raster(data=germ_rast, 
+                  aes(x=lon, y=lat, 
+                      fill=dialect)) 
+    
+  
+```
