@@ -97,6 +97,75 @@ ggplot(SHPFILE1) +
         shape = 23, fill = "darkred")
       
 ```
+```{r}
+
+library("sf")
+
+
+
+   # change column name for columns to match under Plot.ID
+colnames(GISPOINTS)[3]  <- "Plot.ID"
+Allpts <-inner_join(cleandf, GISPOINTS, by=c("Plot.ID")) # Joined the two data sets matched between Plot.ID
+print(Allpts)
+
+
+
+
+setwd("C:/Users/gnyen/Desktop/ceststands")
+SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") %>% mutate(stand_id = 1:n()) 
+
+
+
+
+layer1 <- ggplot(SHPFILE1) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = Allpts , aes(x = X_LAT, y = Y_LONG, alpha = X..Cnpy.Open, color= X..Cnpy.Open))
+
+     
+
+mid<- median(Allpts$X..Cnpy.Open)
+layer1+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" )
+
+stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)
+stand_1_plots <- Allpts %>% filter(StandID == 3)
+
+(layer1_stand_3 <- ggplot(stand_1_shp) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = stand_1_plots, aes(x = X_LAT, y = Y_LONG, alpha = X..Cnpy.Open, color= X..Cnpy.Open)))
+
+     
+
+mid<- median(Allpts$X..Cnpy.Open)
+(layer1_stand_3+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" ))
+
+
+#stand_id 2 and 5 are STANDID 1
+#stand_id 3 and 4 and 6 are STANDID 2
+
+stand_1_shp <- SHPFILE1 %>% filter %>% filter(stand_id == c(2, 4, 6))
+                      
+stand_1_plots <- Allpts %>% filter(StandID == 2)
+
+(layer1_stand_3 <- ggplot(stand_1_shp) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = stand_1_plots, aes(x = X_LAT, y = Y_LONG, alpha = X..Cnpy.Open, color= X..Cnpy.Open)))
+
+     
+
+mid<- median(Allpts$X..Cnpy.Open)
+(layer1_stand_3+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" ))
+
+
+```
 
 ```{r}
 
@@ -180,11 +249,11 @@ test <- st_as_sf(stand_1_plots, coords = c("X", "Y"))
                              lat = st_coordinates(.)[, 2]) %>%
                       select(cnpy_open, lon, lat)
     
-        cnpy_open_input_GN <- test %>%
-                    tibble(cnpy_open = .$X..Cnpy.Open, 
-                             lon = st_coordinates(.)[, 1], 
-                             lat = st_coordinates(.)[, 2]) %>%
-                      select(cnpy_open, lon, lat)
+     #(   cnpy_open_input_GN <- test %>%
+  #                 tibble(cnpy_open = .$X..Cnpy.Open, 
+    #                       lon = st_coordinates(.)[, 1], 
+     #                        lat = st_coordinates(.)[, 2]) %>%
+      #                select(cnpy_open, lon, lat) 
 
     
 knn = 1000
@@ -192,7 +261,6 @@ knn = 1000
                               lon = st_coordinates(grid)[, 1], 
                               lat = st_coordinates(grid)[, 2])
     
-  
     
             cnpy_open_output_kknn <- kknn::kknn(cnpy_open ~ ., 
                                train = cnpy_open_input, 
