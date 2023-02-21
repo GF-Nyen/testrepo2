@@ -1,0 +1,46 @@
+---
+title: "BSSRC Poster"
+output: html_document
+date: "2023-02-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r working chunk - copy this}
+library(gstat)
+library(raster)
+library(sp)
+library(tidyverse)
+library(janitor)
+GISPOINTS <- read_csv("C:/Users/gnyen/Desktop/GISPOINTS.txt")
+HEMIMESS <- read_csv("C:/Users/gnyen/Desktop/HEMIMESS.csv") %>% clean_names()
+SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") %>% mutate(stand_id = 1:n()) 
+GISPOINTS <- GISPOINTS %>% clean_names()
+Allpts <- HEMIMESS %>% left_join(GISPOINTS) #%>% clean_names()
+
+
+#Adam changes
+stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)
+stand_1_plots <- Allpts %>% filter(stand_id == 3)
+
+
+(layer1_stand_3 <- ggplot(stand_1_shp) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = stand_1_plots, aes(x = x_lat, y = y_long, #alpha = percent_cnpy_open, 
+                                      size = percent_cnpy_open, color = percent_cnpy_open)) +
+    scale_size_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    #scale_alpha_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    scale_color_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    theme_minimal())
+
+
+mid<- median(stand_1_plots$X..Cnpy.Open)
+layer1_stand_3+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" )
+
+
+```

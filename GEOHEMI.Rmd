@@ -92,13 +92,19 @@ print(new_pts)
 ```{r}
 
 library("sf")
-SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") %>% mutate(stand_id = 1:n()) 
+library(gstat)
+g <- gstat(formula = Allpts$X..Cnpy.Open ~ 1, data = Allpts)
+SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") #%>% mutate(stand_id = 1:n())  
 ggplot(SHPFILE1) +
   geom_sf(aes()) +
- geom_point(data = GISPOINTS, aes(x = X_LAT, y = Y_LONG), size = .5, 
-        shape = 23, fill = "darkred")
+ geom_point(data = Allpts, aes(x = X_LAT, y = Y_LONG), size = 5, 
+        shape = 23, fill = pull(Allpts, X..Cnpy.Open))
+
+
       
+
 ```
+
 ```{r}
 
 library("sf")
@@ -130,9 +136,10 @@ layer1 <- ggplot(SHPFILE1) +
 mid<- median(Allpts$X..Cnpy.Open)
 layer1+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
                      high="red", space ="Lab" )
+ filter(SHPFILE1, REGENYEAR == 1986) %>% plot(SHPFILE1$geometry)
 
-stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)
-stand_1_plots <- Allpts %>% filter(StandID == 3)
+stand_1_shp <- layer1 %>% filter(data$geometry == 1)
+stand_1_plots <- Allpts %>% filter(StandID == 4)
 
 (layer1_stand_3 <- ggplot(stand_1_shp) +
   geom_sf(aes()) +
@@ -309,5 +316,135 @@ cnpy_open_output_kknn <- kknn::kknn(cnpy_open ~ .,
                                 remove = F)
     
     
+```
+
+```{r working chunk - copy this}
+library(gstat)
+library(raster)
+library(sp)
+library(tidyverse)
+library(janitor)
+HEMIMESS <- read_csv("C:/Users/gnyen/Desktop/HEMIMESS.csv") %>% clean_names()
+SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") %>% mutate(stand_id = 1:n()) 
+GISPOINTS <- GISPOINTS %>% clean_names()
+Allpts <- HEMIMESS %>% left_join(GISPOINTS) #%>% clean_names()
+
+
+#Adam changes
+stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)
+stand_1_plots <- Allpts %>% filter(stand_id == 3)
+
+
+(layer1_stand_3 <- ggplot(stand_1_shp) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = stand_1_plots, aes(x = x_lat, y = y_long, #alpha = percent_cnpy_open, 
+                                      size = percent_cnpy_open, color = percent_cnpy_open)) +
+    scale_size_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    #scale_alpha_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    scale_color_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    theme_minimal())
+
+
+mid<- median(stand_1_plots$X..Cnpy.Open)
+layer1_stand_3+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" )
+
+
+```
+
+
+```{r}
+library(gstat)
+library(raster)
+library(sp)
+
+library(janitor)
+HEMIMESS <- read_csv("C:/Users/gnyen/Desktop/HEMIMESS.csv") %>% clean_names()
+GISPOINTS <- GISPOINTS %>% clean_names()
+Allpts <- HEMIMESS %>% left_join(GISPOINTS) #%>% clean_names()
+mid<- median(Allpts$percent_cnpy_open)
+
+#Adam changes
+stand_1_shp <- Allpts %>% filter(stand_id == 1)
+stand_1_plots <- Allpts %>% filter(stand_id == 3)
+
+mid <- median(stand_1_plots$X..Cnpy.Open)
+
+ l1 <- ((layer1_stand_3 <- ggplot(stand_1_shp) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = stand_1_plots, aes(x = x_lat, y = y_long, size = percent_cnpy_open)) ))
+
+   
+   mid<- median(Allpts$X..Cnpy.Open)
+layer1+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" )
+      geom_point(colour = "orange", size = 4.5) 
+   
+ print(l1) 
+    scale_size_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2))) 
+        
+
+
+```
+```{r}
+library("sf")
+library(gstat)
+library(raster)
+library(sp)
+library(tidyverse)
+
+library(janitor)
+GISPOINTS <- read_csv("C:/Users/gnyen/Desktop/GISPOINTS.txt")
+HEMIMESS <- read_csv("C:/Users/gnyen/Desktop/HEMIMESS.csv") %>% clean_names()
+SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") %>% mutate(stand_id = 1:n()) 
+GISPOINTS <- GISPOINTS %>% clean_names()
+Allpts <- HEMIMESS %>% left_join(GISPOINTS) #%>% clean_names()
+mid<- median(Allpts$percent_cnpy_open)
+
+#Adam changes
+stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)
+stand_1_plots <- Allpts %>% filter(stand_id == 3)
+
+
+   # change column name for columns to match under Plot.ID
+colnames(GISPOINTS)[3]  <- "Plot.ID"
+Allpts <-inner_join(cleandf, GISPOINTS, by=c("Plot.ID")) # Joined the two data sets matched between Plot.ID
+print(Allpts)
+
+
+
+
+#setwd("C:/Users/gnyen/Desktop/ceststands")
+
+
+
+
+(layer1 <- ggplot(SHPFILE1) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = Allpts , aes(x = X_LAT, y = Y_LONG, alpha = X..Cnpy.Open, color= X..Cnpy.Open)))
+
+     
+
+mid<- median(Allpts$X..Cnpy.Open)
+layer1+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
+                     high="red", space ="Lab" )
+
+library(sf)
+library(ggplot2)
+library(apcf)
+setwd("C:/Users/gnyen/Desktop/ceststands")
+aoi <- st_read("estab_outline.shp")
+plot(aoi$geometry)
+st_geometry_type(aoi)
+
+GISPOINTS <- read_csv("C:/Users/gnyen/Desktop/GISPOINTS.txt")
+
+
 ```
 
