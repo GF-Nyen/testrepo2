@@ -22,8 +22,8 @@ Allpts <- HEMIMESS %>% left_join(GISPOINTS) #%>% clean_names()
 
 
 #Adam changes
-stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)
-stand_1_plots <- Allpts %>% filter(stand_id == 3)
+stand_1_shp <- SHPFILE1 %>% filter(stand_id == 9)   #1  #8  #9*
+stand_1_plots <- Allpts %>% filter(stand_id == 4)   #3  #5  #4*
 
 
 (layer1_stand_3 <- ggplot(stand_1_shp) +
@@ -34,13 +34,30 @@ stand_1_plots <- Allpts %>% filter(stand_id == 3)
                                       size = percent_cnpy_open, color = percent_cnpy_open)) +
     scale_size_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
     #scale_alpha_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
-    scale_color_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    scale_color_continuous(guide = "legend", limits=c(34, 48), breaks=seq(34, 48, by=2), type = "viridis") +
     theme_minimal())
 
 
-mid<- median(stand_1_plots$X..Cnpy.Open)
-layer1_stand_3+scale_color_gradient2(midpoint=mid, low="cyan2", mid="blue",
-                     high="red", space ="Lab" )
 
 
 ```
+
+```{r}
+#Adam changes
+stand_1_shp <- SHPFILE1 %>% filter(stand_id == 8)   #1  #8  #9*
+stand_1_plots <- Allpts %>% filter(stand_id == 5)   #3  #5  #4*
+
+
+(layer1_stand_3 <- ggplot(stand_1_shp) +
+  geom_sf(aes()) +
+  labs(title = "Geolocations In Stands")+
+   # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = stand_1_plots, aes(x = x_lat, y = y_long, #alpha = percent_cnpy_open, 
+                                      size = percent_cnpy_open, color = percent_cnpy_open)) +
+    scale_size_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    #scale_alpha_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+    scale_color_continuous(guide = "legend", limits=c(34, 48), breaks=seq(34, 48, by=2), type = "viridis") +
+    theme_minimal())
+ggplot
+```
+
