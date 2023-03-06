@@ -109,9 +109,7 @@ library(rlang)
 p1 <- layer8_stand_5 
 p2 <- layer1_stand_3 + ylab(NULL)
 p3 <- layer9_stand_4 + ylab(NULL)
-p1
-p2
-p3
+
 
 #this makes them in a row
 prow <- plot_grid(
