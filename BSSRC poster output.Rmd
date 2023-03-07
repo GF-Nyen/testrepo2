@@ -72,8 +72,9 @@ stand_8_shp <- SHPFILE1 %>% filter(stand_id == 8)   #1  #8  #9*
 stand_5_plots <- Allpts %>% filter(stand_id == 5)   #3  #5  #4*
 
 (layer8_stand_5 <- ggplot(stand_8_shp) +
-  geom_sf(aes()) +
-  labs(title = "Geolocations In Stands")+
+  geom_sf(aes()) + 
+  labs(title = "Geolocations In Stands", )+ 
+    
    # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
  geom_point(data = stand_5_plots, aes(x = x_lat, y = y_long, #alpha = percent_cnpy_open, 
                                       size = percent_cnpy_open, color = percent_cnpy_open)) +
@@ -122,11 +123,11 @@ p2 <- layer1_stand_3 + ylab(NULL) + xlab(NULL)
 
 #this makes them in a row
 prow <- plot_grid(
-  p1 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
+  p1 + theme(legend.position="none", axis.text.x = element_text(angle = 90)) +ggtitle("Geolocations In Stands")+ theme(plot.title = element_text(size=20)),
   p2 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
  # p3 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
   align = 'vh',
-  labels = c("A", "B"),
+  labels = c(),
   hjust = -1,
   nrow = 1
 )
@@ -144,5 +145,3 @@ legend_b <- get_legend(
 # of the height of one plot (via rel_heights).
 plot_grid(prow, legend_b, ncol = 1, rel_heights = c(.1, .05)) #Mess with the last number
 ```
-
-
