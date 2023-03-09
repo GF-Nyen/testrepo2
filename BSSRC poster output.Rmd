@@ -123,7 +123,7 @@ p2 <- layer1_stand_3 + ylab(NULL) + xlab(NULL)
 
 #this makes them in a row
 prow <- plot_grid(
-  p1 + theme(legend.position="none", axis.text.x = element_text(angle = 90)) +ggtitle("Geolocations In Stands")+ theme(plot.title = element_text(size=20)),
+  p1 + theme(legend.position="none", axis.text.x = element_text(angle = 90)) +ggtitle("Canopy Openness Within Stands")+ theme(plot.title = element_text(size=20)),
   p2 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
  # p3 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
   align = 'vh',
@@ -164,23 +164,24 @@ HEMIMESS <- read_csv("C:/Users/gnyen/Desktop/HEMIMESS.csv") %>% clean_names()
 SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") %>% mutate(stand_id = 1:n()) 
 GISPOINTS <- GISPOINTS %>% clean_names()
 Allpts <- HEMIMESS %>% left_join(GISPOINTS) 
-as_tibble(p_ten_in)
-as_tibble(benju_phos)
+#as_tibble(p_ten_in)
+#as_tibble(benju_phos)
 benju_phos %>%rename(stand_id = stand) 
 names(benju_phos)[1] <- "stand_id"
 names(benju_phos)[2] <- "plot_id"
 p_ten_in <- filter(benju_phos, depth == "0-10")
 colnames(benju_phos)
 plot_phos <-left_join(benju_phos, Allpts, by = "plot_id")
-
-
+PIP <- left_join(p_ten_in, Allpts, by = "plot_id" ) 
+#PIP = Phosphorus In Plots
+#view(PIP)
 
 standP <- ggplot(p_ten_in, aes(x= stand, y= P, size= P, alpha= P)) + geom_point(color= "green2")
 
 
 
 stand_8_shp <- SHPFILE1 %>% filter(stand_id == 8)   #1  #8  #9*
-stand_5_phos <- plot_phos %>% filter(stand_id.x == 5)   #3  #5  #4*
+stand_5_phos <- PIP %>% filter(stand_id.x == 5)   #3  #5  #4*
 
 (layer8_phos_5 <- ggplot(stand_8_shp) +
   geom_sf(aes()) + 
@@ -190,15 +191,19 @@ stand_5_phos <- plot_phos %>% filter(stand_id.x == 5)   #3  #5  #4*
  geom_point(data = stand_5_phos, shape= 17, aes(x = x_lat, y = y_long, 
                                      
                                       size = P, color = P)) +
-  #  scale_size_continuous(limits=c(0, 6), breaks=seq(0, 6, by=2)) +
+   scale_size_continuous(limits=c(0, 12), breaks=seq(0, 12, by=2)) +
     #scale_alpha_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
-    #scale_color_continuous(guide = "legend", limits=c(0, 6), breaks=seq(0, 6, by=2), type = "viridis") +
+    scale_color_continuous(guide = "legend", limits=c(0, 12), breaks=seq(0, 12, by=2), type = "viridis") +
     theme_minimal(base_size = 8))
+
+#view(stand_3_phos) 
+#view(p_ten_in)
+
 
 
 
 stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)   #1  #8  #9*
-stand_3_phos <- plot_phos %>% filter(stand_id.x == 3)   #3  #5  #4*
+stand_3_phos <- PIP %>% filter(stand_id.x == 3)   #3  #5  #4*
 
 (layer1_phos_3 <- ggplot(stand_1_shp) +
   geom_sf(aes()) + 
@@ -207,13 +212,13 @@ stand_3_phos <- plot_phos %>% filter(stand_id.x == 3)   #3  #5  #4*
 ### # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
  geom_point(data = stand_3_phos, shape = 17, aes(x = x_lat, y = y_long, 
                                      
-                                 size=P,      color = P)) +
-   # scale_size_continuous(limits=c(0, 6), breaks=seq(0, 6, by=2)) +
-    #scale_alpha_continuous(limits=c(0, 11), breaks=seq(0, 11, by=2)) +
-   # scale_color_continuous(guide = "legend", limits=c(0, 6), breaks=seq(0, 6, by=2), type = "viridis") +
+                              size= P,         color = P)) +
+   scale_size_continuous(limits=c(0, 12), breaks=seq(0, 12, by=2)) +
+   ## scale_alpha_continuous(limits=c(0, 11), breaks=seq(0, 11, by=2)) +
+   scale_color_continuous(guide = "legend", limits=c(0, 12), breaks=seq(0, 12, by=2), type = "viridis") +
     theme_minimal(base_size = 8))
 
-
+#summary(plot_phos %>% filter(stand_id.x == 3))
 ```
 
 ```{r Cowplot some phos bro!}
@@ -231,7 +236,7 @@ p4 <- layer1_phos_3 + ylab(NULL) + xlab(NULL)
 
 #this makes them in a row
 prow <- plot_grid(
-  p3 + theme(legend.position="none", axis.text.x = element_text(angle = 90)) +ggtitle("Phosphorus gradient in stands")+ theme(plot.title = element_text(size=20)),
+  p3 + theme(legend.position="none", axis.text.x = element_text(angle = 90)) +ggtitle(" Extractable P Concentrations (mg/kg) ")+ theme(plot.title = element_text(size=20)),
   p4 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
  # p3 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
   align = 'vh',
