@@ -164,35 +164,93 @@ HEMIMESS <- read_csv("C:/Users/gnyen/Desktop/HEMIMESS.csv") %>% clean_names()
 SHPFILE1 <- sf::st_read("C:/Users/gnyen/Desktop/ceststands/estab_outline.shp") %>% mutate(stand_id = 1:n()) 
 GISPOINTS <- GISPOINTS %>% clean_names()
 Allpts <- HEMIMESS %>% left_join(GISPOINTS) 
-rename(benju_phos, stand_id = stand)
-rename(p_ten_in, stand_id = stand)
-
+as_tibble(p_ten_in)
+as_tibble(benju_phos)
+benju_phos %>%rename(stand_id = stand) 
+names(benju_phos)[1] <- "stand_id"
+names(benju_phos)[2] <- "plot_id"
 p_ten_in <- filter(benju_phos, depth == "0-10")
-labs <- c("3", "4", "5", "6", "7", "8", "9", "10")
+colnames(benju_phos)
+plot_phos <-left_join(benju_phos, Allpts, by = "plot_id")
+
+
+
 standP <- ggplot(p_ten_in, aes(x= stand, y= P, size= P, alpha= P)) + geom_point(color= "green2")
 
 
-standP <- standP 
-print(standP)
 
+stand_8_shp <- SHPFILE1 %>% filter(stand_id == 8)   #1  #8  #9*
+stand_5_phos <- plot_phos %>% filter(stand_id.x == 5)   #3  #5  #4*
 
-#stand_8_shp <- SHPFILE1 %>% filter(stand_id == 8)   #1  #8  #9*
-#stand_5_plots <- Allpts %>% filter(stand_id == 5)   #3  #5  #4*
-
-#(layer8_stand_5 <- ggplot(stand_8_shp) +
- # geom_sf(aes()) + 
-#  labs(title = "Geolocations In Stands", )+ 
+(layer8_phos_5 <- ggplot(stand_8_shp) +
+  geom_sf(aes()) + 
+  labs(title = "", )+ 
     
 ### # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
-# geom_point(data = stand_5_plots, aes(x = x_lat, y = y_long, #alpha = percent_cnpy_open, 
-#                                      size = percent_cnpy_open, color = #percent_cnpy_open)) +
-#    scale_size_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
+ geom_point(data = stand_5_phos, shape= 17, aes(x = x_lat, y = y_long, 
+                                     
+                                      size = P, color = P)) +
+  #  scale_size_continuous(limits=c(0, 6), breaks=seq(0, 6, by=2)) +
     #scale_alpha_continuous(limits=c(34, 48), breaks=seq(34, 48, by=2)) +
-#    scale_color_continuous(guide = "legend", limits=c(34, 48), breaks=seq(34, 48, by=2), type = "viridis") +
- #   theme_minimal(base_size = 8))
+    #scale_color_continuous(guide = "legend", limits=c(0, 6), breaks=seq(0, 6, by=2), type = "viridis") +
+    theme_minimal(base_size = 8))
 
 
 
+stand_1_shp <- SHPFILE1 %>% filter(stand_id == 1)   #1  #8  #9*
+stand_3_phos <- plot_phos %>% filter(stand_id.x == 3)   #3  #5  #4*
 
+(layer1_phos_3 <- ggplot(stand_1_shp) +
+  geom_sf(aes()) + 
+  labs(title = "", )+ 
+    
+### # geom_sf_label(data = SHPFILE1, aes(label = A), size=3) +
+ geom_point(data = stand_3_phos, shape = 17, aes(x = x_lat, y = y_long, 
+                                     
+                                 size=P,      color = P)) +
+   # scale_size_continuous(limits=c(0, 6), breaks=seq(0, 6, by=2)) +
+    #scale_alpha_continuous(limits=c(0, 11), breaks=seq(0, 11, by=2)) +
+   # scale_color_continuous(guide = "legend", limits=c(0, 6), breaks=seq(0, 6, by=2), type = "viridis") +
+    theme_minimal(base_size = 8))
+
+
+```
+
+```{r Cowplot some phos bro!}
+
+
+p3 <- layer8_phos_5
+p4 <- layer1_phos_3
+
+library(rlang)
+
+p3 <- layer8_phos_5 + ylab(NULL) + xlab(NULL)
+p4 <- layer1_phos_3 + ylab(NULL) + xlab(NULL)
+# p3 <- layer9_stand_4 + ylab(NULL)
+
+
+#this makes them in a row
+prow <- plot_grid(
+  p3 + theme(legend.position="none", axis.text.x = element_text(angle = 90)) +ggtitle("Phosphorus gradient in stands")+ theme(plot.title = element_text(size=20)),
+  p4 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
+ # p3 + theme(legend.position="none", axis.text.x = element_text(angle = 90)),
+  align = 'vh',
+  labels = c(),
+  hjust = -1,
+  nrow = 1
+)
+prow
+
+#this spits out a legend that it pulls from one of the plots
+
+legend_b <- get_legend(
+  p3 + 
+    guides(color = guide_legend(nrow = 1)) +
+    theme(legend.position = "bottom")
+)
+
+# add the legend underneath the row we made earlier. Give it 10%
+# of the height of one plot (via rel_heights).
+plot_grid(prow, legend_b, ncol = 1, rel_heights = c(.1, .05)) #Mess with the last numbe
 ```
 
