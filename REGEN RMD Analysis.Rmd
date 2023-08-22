@@ -80,7 +80,7 @@ bigdat <- new_summary %>% full_join(hemidata, by = c("stand", "transect", "posit
 
 hemisum <- bigdat %>% 
   group_by(stand, transect, position) %>% 
-    reframe( count, gap_fraction, openness, ppfd_total_under_per_day_m_jor_mol_m2day )
+    reframe( n_seedlings, mean_height, gap_fraction, openness, lai_2000_lin , ppfd_total_under_per_day_m_jor_mol_m2day )
 hemisum
 
 ```
