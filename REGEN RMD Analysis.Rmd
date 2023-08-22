@@ -1,0 +1,219 @@
+---
+title: "Regen Data Analysis"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+date: '2023-07-06'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r "optional install section"}
+
+install.packages("sf")
+install.packages("janitor")
+
+```
+
+```{r "importing data and packages and a little cleaning"}
+library('tidyverse')
+
+library(sf)
+
+library(janitor)
+
+# this is for the jones center #       setwd("R:/graduate_students/Nyen/R - Copy/r_pull_from")
+setwd("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from")
+
+regendatarmd <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/regenplots.csv")
+#clean the data #take off the quadrat numbers and pool into sampling pints
+  
+regendatarmd <- regendatarmd   %>% 
+  separate(col = PLOT_ID,  into = c("stand", "transect", "position")) %>% 
+  janitor::clean_names()
+
+regendatarmd$standbyrow <- paste(regendatarmd$stand, "_", regendatarmd$row)
+
+
+
+
+```
+
+```{r "do the same seperation of collums for stands for the canopy stuff"}
+
+hemidata <- hemidata %>%  
+    mutate(stand = as.numeric(stand))
+hemidata <- hemidata %>%  
+    mutate(transect = as.numeric(transect))
+hemidata <- hemidata %>%  
+    mutate(position = as.character(position))
+
+
+
+regendatarmd <- regendatarmd %>%  
+    mutate(stand = as.numeric(stand))
+regendatarmd <- regendatarmd %>%  
+    mutate(transect = as.numeric(transect))
+regendatarmd <- regendatarmd %>%  
+    mutate(position = as.character(position))
+
+new_summary <- new_summary %>%  
+    mutate(stand = as.numeric(stand))
+new_summary <- new_summary %>%  
+    mutate(transect = as.numeric(transect))
+new_summary <- new_summary %>%  
+    mutate(position = as.character(position))
+
+
+hemidata <- data2 %>% 
+  separate(col = Plot, into = c("stand", "transect", "position")) %>% 
+  janitor::clean_names()
+
+hemidata$standbyrow <- paste(hemidata$stand, "_", hemidata$row)
+
+```
+```{r "make some summary tables of the hemidata}
+bigdat <- new_summary %>% full_join(hemidata, by = c("stand", "transect", "position"))
+
+hemisum <- bigdat %>% 
+  group_by(stand, transect, position) %>% 
+    reframe( count, gap_fraction, openness, ppfd_total_under_per_day_m_jor_mol_m2day )
+hemisum
+
+```
+
+
+```{r "summary tables"}
+
+#make a summary table to use for the rest
+
+new_summary <- regendatarmd %>% 
+  group_by(stand, transect, position, row, quadrat) %>% 
+  summarise(n_seedlings  = length(position[regen_count>=1]),
+            mean_height = mean(height_cm))
+
+
+STAND_ROW_SUMMARY   <- new_summary %>% group_by(stand, row) %>% 
+            summarise(n_seedlings_mean = mean(n_seedlings),
+            n_seedlings_sd = sd(n_seedlings),
+            height_mean = mean(mean_height, na.rm = TRUE),
+            height_sd = sd(mean_height, na.rm = TRUE))
+
+STAND_ROW_SUMMARY
+
+
+#this "Row_Summary" is the summary to use
+ROW_SUMMARY   <- new_summary %>% group_by(row) %>% 
+            summarise(n_seedlings_mean = mean(n_seedlings),
+            n_seedlings_sd = sd(n_seedlings),
+            height_mean = mean(mean_height, na.rm = TRUE),
+            height_sd = sd(mean_height, na.rm = TRUE))
+
+ROW_SUMMARY
+new_summary$standbyrow <- paste(new_summary$stand, "_", new_summary$row)
+
+```
+
+```{r "tests of variation between condition means"}
+
+# The following normitive tests are based on pooling regen per flag and extrapalating from this.
+
+a1 <- qqnorm(STAND_ROW_SUMMARY$height_mean)
+print(a1)
+a2 <- qqnorm(STAND_ROW_SUMMARY$n_seedlings_mean)
+a2
+a3 <- qqnorm(STAND_ROW_SUMMARY$height_sd)
+a3
+a4 <- qqnorm(STAND_ROW_SUMMARY$n_seedlings_sd)
+a4
+
+ #the following interpretations are based on alpha </= .05
+
+# Height difference between row types?
+
+wilcox.test(height_cm~row, data=regendatarmd, na.rm = TRUE)
+
+#There is a significant difference between the height of regen that exists in TO rows vs L rows. 
+#---------------------------------------------------------------
+
+# How many regen and is there a sig difference by row?
+
+wilcox.test(regen_count~row, data=regendatarmd, na.rm = TRUE)
+
+#No significant variation in regen counts per row type. This is pretty cool.
+#---------------------------------------------------------------
+
+# Check variation between stands?
+
+kruskal.test(regen_count~stand, data= regendatarmd)
+
+#We have a significant amount of variation of regen counts between stands. Checks out.
+#---------------------------------------------------------------
+
+# Regen height difference because of row type?
+kruskal.test(height_cm~standbyrow, data= regendatarmd)
+
+#There is significant difference between the means of regen heights between row types.
+
+
+```
+
+```{r "s graphs"}
+
+new_summary$standbyrow <- paste(new_summary$stand, "_", new_summary$row)
+
+boxplot5 <- (filter(regendatarmd, stand==5) %>%  group_by(stand, transect, position, row, quadrat) %>% ggplot(regendatarmd, aes(x= row , y= regen_count, fill = regen_count))+
+geom_boxplot())
+
+
+dafill <- filter(stand5, n_seedlings >=1 )
+
+boxplot5 <- stand5 %>% ggplot(aes(x = row, y = n_seedlings, fill= n_seedlings, na.rm=F ))+
+  geom_boxplot()
+boxplot5
+
+boxplot5 <- ggplot(data=stand5, aes(x = row, y = n_seedlings, fill= dafill, na.rm=F ))+
+  geom_boxplot()
+boxplot5
+
+
+
+allbox <- new_summary %>% arrange(desc(stand)) %>% ggplot( aes(x= standbyrow, y = n_seedlings, fill= n_seedlings, na.rm=F, horizontal = T)) +
+  geom_boxplot(outlier.colour="red", outlier.shape=8,
+                outlier.size=4)
+allbox
+
+allbox + coord_flip()
+
+allboxF
+
+withbox <- standswith %>% arrange(desc(stand)) %>% ggplot( aes(x= standbyrow, y = n_seedlings, fill= n_seedlings, na.rm=F, horizontal = T)) +
+  geom_boxplot(outlier.colour="red", outlier.shape=8,
+                outlier.size=4)
+withbox + coord_flip()
+
+testsample <- slice(new_summary, 1:198)
+
+testbox <-  testsample %>% ggplot( aes(x= standbyrow, y = n_seedlings, fill= n_seedlings, na.rm=F, horizontal = T)) +
+  geom_boxplot(outlier.colour="red", outlier.shape=8,
+                outlier.size=4) 
+  testbox
+
+
+
+stand3 <-  new_summary %>% group_by(stand, transect, position, row) %>% filter(stand==3) %>% filter(n_seedlings >= .1)
+stand4 <-  new_summary %>% group_by(stand, transect, position, row) %>% filter(stand==4) %>% filter(n_seedlings >= .1)
+stand5 <-  new_summary %>% group_by(stand, transect, position, row) %>% filter(stand==5) %>% filter(n_seedlings >= .1)
+stand6 <-  new_summary %>% group_by(stand, transect, position, row) %>% filter(stand==6) %>% filter(n_seedlings >= .1)
+stand7 <-  new_summary %>% group_by(stand, transect, position, row) %>% filter(stand==7) %>% filter(n_seedlings >= .1)
+stand8 <-  new_summary %>% group_by(stand, transect, position, row) %>% filter(stand==8) %>% filter(n_seedlings >= .1)
+stand9 <-  new_summary %>% group_by(stand, transect, position, row) %>% filter(stand==9) %>% filter(n_seedlings >= .1)
+stand10 <- new_summary %>% group_by(stand, transect, position, row) %>% filter(stand==10) %>% filter(n_seedlings >= .1)
+
+stand_all <- new_summary %>% group_by(stand) %>% group_by(transect, position, row) %>% filter(n_seedlings >= .1)
+standswith <- new_summary %>% group_by(stand, transect, position) %>% filter(new_summary$stand <=5)
+
+```

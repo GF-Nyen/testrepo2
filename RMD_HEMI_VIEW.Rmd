@@ -18,7 +18,7 @@ library(tidyverse)
 test <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/XLSCanopy_T1.csv")
 test2 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/PIC_A_NO_E_CSV.csv")
 
-
+left_join()
 
 colnames_data <- c("Photo#", "FileName", "Analysis Date Time", "Acquisition Date Time", 
   "Modified Date Time", "ImageSize H V PxSizeH PxSizeV", "Edited Sharpened ChromAberRemoval_RGB", 
@@ -66,4 +66,12 @@ data2 <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemisp
 summary(data)
 summary(data2)
 ```
+
+```{r}
+ggplot(data2, aes())+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+  
+```
+
 
