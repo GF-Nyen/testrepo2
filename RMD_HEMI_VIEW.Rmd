@@ -18,7 +18,7 @@ library(tidyverse)
 test <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/XLSCanopy_T1.csv")
 test2 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/PIC_A_NO_E_CSV.csv")
 
-left_join()
+
 
 colnames_data <- c("Photo#", "FileName", "Analysis Date Time", "Acquisition Date Time", 
   "Modified Date Time", "ImageSize H V PxSizeH PxSizeV", "Edited Sharpened ChromAberRemoval_RGB", 
@@ -66,12 +66,113 @@ data2 <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemisp
 summary(data)
 summary(data2)
 ```
+```{r "optional install section"}
 
-```{r}
-ggplot(data2, aes())+
-  geom_point()+
-  geom_smooth(method = "lm", se = F)
+install.packages("sf")
+install.packages("janitor")
+
+```
+
+```{r "importing data and packages and a little cleaning"}
+library('tidyverse')
+
+library(sf)
+
+library(janitor)
+
+# this is for the jones center #       setwd("R:/graduate_students/Nyen/R - Copy/r_pull_from")
+setwd("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from")
+
+regendatarmd <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/regenplots.csv")
+#clean the data #take off the quadrat numbers and pool into sampling pints
   
+regendatarmd <- regendatarmd   %>% 
+  separate(col = PLOT_ID,  into = c("stand", "transect", "position")) %>% 
+  janitor::clean_names()
+
+regendatarmd$standbyrow <- paste(regendatarmd$stand, "_", regendatarmd$row)
+
+
+
+
+```
+
+```{r "do the same seperation of collums for stands for the canopy stuff"}
+hemidata <- data2 %>% 
+  separate(col = Plot, into = c("stand", "transect", "position")) %>% 
+  janitor::clean_names()
+
+hemidata <- hemidata %>%  
+    mutate(stand = as.numeric(stand))
+hemidata <- hemidata %>%  
+    mutate(transect = as.numeric(transect))
+hemidata <- hemidata %>%  
+    mutate(position = as.character(position))
+
+
+
+regendatarmd <- regendatarmd %>%  
+    mutate(stand = as.numeric(stand))
+regendatarmd <- regendatarmd %>%  
+    mutate(transect = as.numeric(transect))
+regendatarmd <- regendatarmd %>%  
+    mutate(position = as.character(position))
+
+
+new_summary <- new_summary %>%  
+    mutate(stand = as.numeric(stand))
+new_summary <- new_summary %>%  
+    mutate(transect = as.numeric(transect))
+new_summary <- new_summary %>%  
+    mutate(position = as.character(position))
+
+
+
+
+
+
+```
+```{r "make some summary tables of the hemidata}
+bigdat <- new_summary %>% full_join(hemidata, by = c("stand", "transect", "position"))
+
+hemisum <- bigdat %>% 
+  group_by(stand, transect, position) %>% 
+    reframe(summarise(n_seedlings  = length(position[regen_count>=1]), mean_height, gap_fraction, openness, lai_2000_lin , ppfd_total_under_per_day_m_jor_mol_m2day )
+hemisum
+
 ```
 
 
+
+```{r "lets get grapphy"}
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(ppfd_total_under_per_day_m_jor_mol_m2day, n_seedlings))+
+  geom_point() +
+    geom_smooth(method = "lm", se=F)
+    
+ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(ppfd_total_under_per_day_m_jor_mol_m2day, n_seedlings))+
+  geom_point() +
+    geom_smooth(se=F)      
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(gap_fraction, n_seedlings))+
+  geom_point() +
+    geom_smooth(se=F)
+
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(gap_fraction, n_seedlings))+
+  geom_point() +
+    geom_smooth(method = "lm", se=F)
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(openness, n_seedlings))+
+  geom_point() +
+    geom_smooth(se=F)
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(openness, n_seedlings))+
+  geom_point() +
+    geom_smooth(method = "lm", se=F)
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(lai_2000_lin, n_seedlings))+
+  geom_point() +
+    geom_smooth(se=F)
+
+```
