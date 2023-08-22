@@ -62,10 +62,7 @@ data <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemisph
 data2 <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/PIC_A_NO_E_CSV.csv", skip = 6, col_names = colnames_data)
 
 ```
-```{r}
-summary(data)
-summary(data2)
-```
+
 ```{r "optional install section"}
 
 install.packages("sf")
@@ -176,3 +173,42 @@ ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(lai_2000_lin, n_seedlings))+
     geom_smooth(se=F)
 
 ```
+```{r}
+
+ggplot(hemisum, aes(ppfd_total_under_per_day_m_jor_mol_m2day, mean_height))+
+  geom_point() +
+    geom_smooth(method = "lm", se=F)
+    
+ggplot(hemisum, aes(ppfd_total_under_per_day_m_jor_mol_m2day, mean_height))+
+  geom_point() +
+    geom_smooth(se=F)      
+
+ggplot(hemisum[which(hemisum$mean_height>0),], aes(gap_fraction, mean_height))+
+  geom_point() +
+    geom_smooth(se=F)
+
+#bad dont use
+ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(gap_fraction, mean_height))+
+  geom_point() +
+    geom_smooth(method = "lm", se=F)
+
+#also bad?
+ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(openness, mean_height))+
+  geom_point() +
+    geom_smooth(method = "lm", se=F)
+
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(openness, mean_height))+
+  geom_point() +
+    geom_smooth(se=F)
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(lai_2000_lin, mean_height))+
+  geom_point() +
+    geom_smooth(method = "lm", se=F)
+
+ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(lai_2000_lin, mean_height))+
+  geom_point() +
+    geom_smooth(se=F)
+
+```
+
