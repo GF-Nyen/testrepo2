@@ -1,0 +1,69 @@
+---
+title: "ExploringHemi"
+output: html_document
+date: "2023-08-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(tidyverse)
+
+```
+
+```{r}
+test <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/XLSCanopy_T1.csv")
+test2 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/PIC_A_NO_E_CSV.csv")
+
+
+
+colnames_data <- c("Photo#", "FileName", "Analysis Date Time", "Acquisition Date Time", 
+  "Modified Date Time", "ImageSize H V PxSizeH PxSizeV", "Edited Sharpened ChromAberRemoval_RGB", 
+  "Camera Make Model Software", "LensFocLength [Equiv. 35mm]", 
+  "Aperture", "ExposureTime", "Camera ISO Metering", "Camera Exposure Prog. Bias Mode", 
+  "Camera Gain Contrast Saturation Sharpness", "UserCameraModel-SN LensModel-SN", 
+  "FOVMax", "LensType LensCalCoef[0 to 9]", "HemiRadiusCentreHV/CoverExtCoef", 
+  "GapSizeDist Method Params", "Bonhom ViewAng Span", "LAI2000 NRing PathLengthSubs", 
+  "LAISphereProjCoef LAIUsedForG(z)", "NSky NZen NOrien[Orig] ZenMin ZenMax DifRadModel", 
+  "GapFrZeroSubs PxOrGap", "ZenithRingsRange", "NofMask", "RadiationUnits", 
+  "TimeZone", "MinutesInterval", "GrowSeasActive Begin End DayInt", 
+  "SubstDirRad DiffRad", "Index[NDVI] Definition", "Index[NDVI]Total", 
+  "Index[NDVI]Avg", "Index[NDVI]Min", "Index[NDVI]Max", NA, NA, 
+  NA, "SolarConstant PARToRadRatio DiffRadToDirRadRatio AtmTrans SunSizeMeth", 
+  "Channel NBits", "PxClassifMeth PxClassifModif", "FieldTripDate", 
+  "FieldTripSite", "FieldTripOpAssist", "AcquisitionTime", "MemoryCard", 
+  "CameraHeight", "Plot", "SkyCond", "Analyst", "Comment", "Slope Aspect", 
+  "NorthRef Declination[Negative=W]", "Orientation", "Latitude[<0=S]", 
+  "Longitude[<0=W]", "Altitude", "CrownProjArea(CPA)", "GapFraction", 
+  "Openness", "LAI(Bonhom)-Lin", "LAI(2000)-Lin", "LAI(2000G)-Lin", 
+  "LAI(Sphere)-Lin", "LAI(Ellips)-Lin", "MeanLeafAngle-Lin", "LAI(Bonhom)-Log", 
+  "LAI(2000)-Log", "LAI(2000G)-Log", "LAI(Sphere)-Log", "LAI(Ellips)-Log", 
+  "MeanLeafAngle-Log", "NofZeroGapFrRgn", "CI(Bonhom)", "CI(2000)", 
+  "CI(2000G)", "CI(Sphere)", "CI(Ellips)", "CI(GSD)", "CrownCoverRatio", 
+  "FoliageCoverRatio", "CrownPorosity", "LAIAtZenViewAngle", "LAIBeerLambert", 
+  "LAI(Bonhom)-Lin CICorr", "LAI(2000)-Lin CICorr", "LAI(2000G)-Lin CICorr", 
+  "LAI(Sphere)-Lin CICorr", "LAI(Ellips)-Lin CICorr", "LAI(Bonhom)-Log CICorr", 
+  "LAI(2000)-Log CICorr", "LAI(2000G)-Log CICorr", "LAI(Sphere)-Log CICorr", 
+  "LAI(Ellips)-Log CICorr", "SilhouetteArea(SA)/FoliageA", "CrownArea(CA)/TotGapA", 
+  "FrameArea(PFA)/ImageA", "LAI IsolTree/FoliageCover", "DirectSiteFactor",
+  "IndirectSiteFactor", "TotalSiteFactor", "PPFDDirectOverPerDay[MJorMol/m2day]", 
+  "PPFDDiffuseOverPerDay[MJorMol/m2day]", "PPFDTotalOverPerDay[MJorMol/m2day]", 
+  "PPFDDirectUnderPerDay[MJorMol/m2day]", "PPFDDiffuseUnderPerDay[MJorMol/m2day]", 
+  "PPFDTotalUnderPerDay[MJorMol/m2day]", "GapRgnArea", "GapRgnZen", 
+  "GapRgnAz", "GapRgnHeight", "GapRgnGapFrac", "GapRgnDirRadOver", 
+  "GapRgnDirRadUnder", "GapRgnDifRadOver", "GapRgnDifRadUnder", 
+  "...")
+
+data <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/XLSCanopy_T1.csv", skip = 6, col_names = colnames_data)
+
+data2 <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/PIC_A_NO_E_CSV.csv", skip = 6, col_names = colnames_data)
+
+```
+```{r}
+summary(data)
+summary(data2)
+```
+
