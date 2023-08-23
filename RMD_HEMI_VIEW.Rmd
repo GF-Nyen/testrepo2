@@ -89,7 +89,15 @@ regendatarmd <- regendatarmd   %>%
 
 regendatarmd$standbyrow <- paste(regendatarmd$stand, "_", regendatarmd$row)
 
+new_summary <- regendatarmd %>% 
+  group_by(stand, transect, position, row, quadrat) %>% 
+  summarise(n_seedlings  = length(position[regen_count>=1]),
+            mean_height = mean(height_cm))
 
+poolposition <- new_summary <- regendatarmd %>% 
+  group_by(stand, transect, position, row) %>% 
+  summarise(n_seedlings  = length(position[regen_count>=1]),
+            mean_height = mean(height_cm))
 
 
 ```
@@ -123,19 +131,37 @@ new_summary <- new_summary %>%
 new_summary <- new_summary %>%  
     mutate(position = as.character(position))
 
-
+poolposition <- poolposition %>%  
+    mutate(stand = as.numeric(stand))
+poolposition <- poolposition %>%  
+    mutate(transect = as.numeric(transect))
+poolposition <- poolposition %>%  
+    mutate(position = as.character(position))
 
 
 
 
 ```
+
+
+
 ```{r "make some summary tables of the hemidata}
 bigdat <- new_summary %>% full_join(hemidata, by = c("stand", "transect", "position"))
+pooldat <- poolposition %>% full_join(hemidata, by = c("stand", "transect", "position"))
+
+poolsum <- pooldat %>% 
+  group_by(stand, transect, position) %>% 
+    reframe(n_seedlings, mean_height, gap_fraction, openness, lai_2000_lin , ppfd_total_under_per_day_m_jor_mol_m2day )
+
 
 hemisum <- bigdat %>% 
   group_by(stand, transect, position) %>% 
-    reframe(summarise(n_seedlings  = length(position[regen_count>=1]), mean_height, gap_fraction, openness, lai_2000_lin , ppfd_total_under_per_day_m_jor_mol_m2day )
-hemisum
+    reframe(n_seedlings, mean_height, gap_fraction, openness, lai_2000_lin , ppfd_total_under_per_day_m_jor_mol_m2day )
+
+
+histdata <- hemisum %>% 
+  group_by(stand, transect, position) %>% 
+    reframe(hemisum[which(hemisum$n_seedlings>0),], mean_height, gap_fraction, openness, lai_2000_lin , ppfd_total_under_per_day_m_jor_mol_m2day )
 
 ```
 
@@ -210,5 +236,124 @@ ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(lai_2000_lin, mean_height))+
   geom_point() +
     geom_smooth(se=F)
 
+```
+
+```{r "how about some occurance histograms"}
+
+ggplot(poolsum, aes(x=openness)) +
+    geom_histogram(bins=10)
+    
+ggplot(poolsum[which(hemisum$n_seedlings>0),], aes(x=openness)) +
+    geom_histogram(bins=25)
+
+
+
+```
+```{r "Started to use Poisson GLM distributions?"}
+# Dpark is x -- n_seedlings
+#TotN is y -- Openness
+
+plot(poolsum$openness, poolsum$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness")
+
+M1 <- glm(n_seedlings ~ openness, family = poisson, data = poolsum)
+poolsum %>% glm(formula = openness ~ n_seedlings, family = poisson)
+summary(M1)
+
+explanatory_data <- poolsum %>% 
+    select(openness)
+
+predict(M1, explanatory_data)
+
+residuals(M1)
+
+GEX <- predict(M1, newdata = explanatory_data, type = "link", se= T)
+FEX <- exp(GEX$fit)
+FSEUP <- exp(GEX$fit + 1.96 * GEX$se.fit)
+FSELOW <- exp(GEX$fit - 1.96 * GEX$se.fit)
+lines(explanatory_data$openness, FEX, lty=1)
+
+
+
+
+
+plot(poolsum$openness, poolsum$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness") +
+lines(explanatory_data$openness, FEX, lty=1) +
+lines(explanatory_data$openness, FSEUP, lty = 2) +
+  lines(explanatory_data$openness, FSELOW, lty = 2)
+
+
+```
+
+```{r "Started to use Poisson GLM distributions?"}
+# Dpark is x -- n_seedlings
+#TotN is y -- Openness
+
+
+BSTEST <- n_seedlings length(position[regen_count>=1])
+
+
+plot(poolsum$openness, (poolsum$n_seedlings>0), xlab ="Number of Seedlings", ylab = "Canopy Openness")
+
+M1 <- glm(n_seedlings ~ openness, family = gaussian, data = poolsum)
+poolsum %>% glm(formula = openness ~ n_seedlings, family = poisson)
+summary(M1)
+
+explanatory_data <- poolsum %>% 
+    select(openness)
+
+predict(M1, explanatory_data)
+
+residuals(M1)
+
+GEX <- predict(M1, newdata = GT0, type = "link", se= T)
+FEX <- exp(GEX$fit)
+FSEUP <- exp(GEX$fit + 1.96 * GEX$se.fit)
+FSELOW <- exp(GEX$fit - 1.96 * GEX$se.fit)
+lines(explanatory_data$openness, FEX, lty=1)
+
+
+GT0 <- filter(poolsum, n_seedlings >0) 
+predict(M1, GT0)
+
+
+plot(GT0$openness, GT0$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness") +
+lines(GT0$openness, FEX, lty=1) +
+lines(GT0$openness, FSEUP, lty = 2) +
+  lines(GT0$openness, FSELOW, lty = 2)
+
+
+```
+
+
+
+
+```{r}
+plot(poolsum$openness, poolsum$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness")
+
+M1 <- glm(n_seedlings ~ openness, family = poisson, data = poolsum)
+poolsum %>% glm(formula = openness ~ n_seedlings, family = poisson)
+summary(M1)
+
+explanatory_data <- poolsum %>% 
+    select(openness)
+
+predict(M1, explanatory_data)
+
+residuals(M1)
+
+GEX <- predict(M1, newdata = GT0, type = "link", se= T)
+FEX <- exp(GEX$fit)
+FSEUP <- exp(GEX$fit + 1.96 * GEX$se.fit)
+FSELOW <- exp(GEX$fit - 1.96 * GEX$se.fit)
+lines(GT0$openness, FEX, lty=1)
+
+
+
+
+
+plot(GT0$openness, GT0$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness") +
+lines(GT0$openness, FEX, lty=1) +
+lines(GT0$openness, FSEUP, lty = 2) +
+  lines(GT0$openness, FSELOW, lty = 2)
 ```
 
