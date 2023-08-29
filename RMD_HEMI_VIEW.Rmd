@@ -10,13 +10,24 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 
-library(tidyverse)
+library('tidyverse')
+
+library(sf)
+
+library(janitor)
+
+```
+```{r "glmmTMB"}
+#adam said that this package would be the best (glmmTMB)
+library("glmmTMB")
+library("lme4")
+library("nlme")
 
 ```
 
 ```{r}
 test <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/XLSCanopy_T1.csv")
-test2 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/PIC_A_NO_E_CSV.csv")
+test2 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/hemisans1.csv")
 
 
 
@@ -57,25 +68,14 @@ colnames_data <- c("Photo#", "FileName", "Analysis Date Time", "Acquisition Date
   "GapRgnDirRadUnder", "GapRgnDifRadOver", "GapRgnDifRadUnder", 
   "...")
 
-data <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/XLSCanopy_T1.csv", skip = 6, col_names = colnames_data)
+data <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/hemisans1.csv", skip = 6, col_names = colnames_data)
 
-data2 <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/PIC_A_NO_E_CSV.csv", skip = 6, col_names = colnames_data)
-
-```
-
-```{r "optional install section"}
-
-install.packages("sf")
-install.packages("janitor")
+data2 <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemispherical_photos/hemisans1.csv", skip = 6, col_names = colnames_data)
 
 ```
 
 ```{r "importing data and packages and a little cleaning"}
-library('tidyverse')
 
-library(sf)
-
-library(janitor)
 
 # this is for the jones center #       setwd("R:/graduate_students/Nyen/R - Copy/r_pull_from")
 setwd("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from")
@@ -115,7 +115,6 @@ hemidata <- hemidata %>%
     mutate(position = as.character(position))
 
 
-
 regendatarmd <- regendatarmd %>%  
     mutate(stand = as.numeric(stand))
 regendatarmd <- regendatarmd %>%  
@@ -137,8 +136,6 @@ poolposition <- poolposition %>%
     mutate(transect = as.numeric(transect))
 poolposition <- poolposition %>%  
     mutate(position = as.character(position))
-
-
 
 
 ```
@@ -148,10 +145,18 @@ poolposition <- poolposition %>%
 ```{r "make some summary tables of the hemidata}
 bigdat <- new_summary %>% full_join(hemidata, by = c("stand", "transect", "position"))
 pooldat <- poolposition %>% full_join(hemidata, by = c("stand", "transect", "position"))
+data3 <- rename(data2, "photo_number" = "Photo#" )
+data2 <- as_tibble(data2)                 
+       
+
 
 poolsum <- pooldat %>% 
   group_by(stand, transect, position) %>% 
     reframe(n_seedlings, mean_height, gap_fraction, openness, lai_2000_lin , ppfd_total_under_per_day_m_jor_mol_m2day )
+
+#important ---------------
+bigbigdat <- left_join(data3, bigdat, by = "photo_number")
+#IMPORTANT ---------------
 
 
 hemisum <- bigdat %>% 
@@ -180,6 +185,10 @@ ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(ppfd_total_under_per_day_m_jor
 ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(gap_fraction, n_seedlings))+
   geom_point() +
     geom_smooth(se=F)
+ggplot(hemisum, aes(gap_fraction, n_seedlings))+
+  geom_point() +
+    geom_smooth(se=F)
+
 
 
 ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(gap_fraction, n_seedlings))+
@@ -232,9 +241,10 @@ ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(lai_2000_lin, mean_height))+
   geom_point() +
     geom_smooth(method = "lm", se=F)
 
-ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(lai_2000_lin, mean_height))+
+ggplot(hemisum, aes(lai_2000_lin, n_seedlings))+
   geom_point() +
-    geom_smooth(se=F)
+   geom_smooth(se=F)
+   
 
 ```
 
@@ -272,7 +282,8 @@ FSEUP <- exp(GEX$fit + 1.96 * GEX$se.fit)
 FSELOW <- exp(GEX$fit - 1.96 * GEX$se.fit)
 lines(explanatory_data$openness, FEX, lty=1)
 
-
+M1 %>% glance(
+)
 
 
 
@@ -289,7 +300,7 @@ lines(explanatory_data$openness, FSEUP, lty = 2) +
 #TotN is y -- Openness
 
 
-BSTEST <- n_seedlings length(position[regen_count>=1])
+
 
 
 plot(poolsum$openness, (poolsum$n_seedlings>0), xlab ="Number of Seedlings", ylab = "Canopy Openness")
@@ -356,4 +367,24 @@ lines(GT0$openness, FEX, lty=1) +
 lines(GT0$openness, FSEUP, lty = 2) +
   lines(GT0$openness, FSELOW, lty = 2)
 ```
+
+#as you move into using glmmadmb, use this link https://rdrr.io/github/bbolker/glmmadmb/man/glmm.admb.html
+
+#for glmmTMB use: 
+https://cran.r-project.org/web/packages/glmmTMB/vignettes/glmmTMB.pdf 
+
+
+
+
+```{r "lets write() a table for Josh"}
+
+meta_dat <- bigbigdat %>% summarize(photo_number, Plot, stand, transect, position, row, n_seedlings, slope_aspect, latitude_0_s, longitude_0_w, altitude, gap_fraction, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day)
+
+
+
+```
+
+
+
+
 
