@@ -380,10 +380,67 @@ https://cran.r-project.org/web/packages/glmmTMB/vignettes/glmmTMB.pdf
 
 meta_dat <- bigbigdat %>% summarize(photo_number, Plot, stand, transect, position, row, n_seedlings, slope_aspect, latitude_0_s, longitude_0_w, altitude, gap_fraction, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day)
 
+meta_dat <- rename(meta_dat, "plot_id" = "Plot" )
 
+cps3 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/cps3.csv") %>% janitor::clean_names()
+cps4 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/cps4.csv") %>% janitor::clean_names()
+cps5 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/cps5.csv") %>% janitor::clean_names()
+cps6 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/cps6.csv") %>% janitor::clean_names()
+cps7 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/cps7.csv") %>% janitor::clean_names()
+cps8 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/cps8.csv") %>% janitor::clean_names()
+cps9 <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/cps9.csv") %>% janitor::clean_names()
+cps10<- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/cps10.csv") %>% janitor::clean_names()
+
+      cps3 <- cps3 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps4 <- cps4 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps5 <- cps5 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps6 <- cps6 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps7 <- cps7 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps8 <- cps8 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps9 <- cps9 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps10 <- cps10 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+
+all <- bind_rows(tibble(cps3), tibble(cps4))
+all1 <- bind_rows(tibble(cps5), tibble(cps6))
+all2 <- bind_rows(tibble(cps7), tibble(cps8))
+all4 <- bind_rows(tibble(cps9), tibble(cps10))
+allthestuff <- bind_rows(all, all1, all2, all4)
+
+meta_dat_cp <- meta_dat %>% left_join(allthestuff, by = "plot_id")
+  
 
 ```
 
+```{r}
+
+SPlist <- allthestuff %>% select(species, species_code, changed_to_new_code_spp) %>% distinct(species_code)
+
+sp_spelling <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/sp_spelling.csv")
+
+mastercode <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/MASTER_PLANT_LIST.csv")
+
+alldat <- allthestuff %>% left_join(sp_spelling, by = c("species_code", "changed_to_new_code_spp", "species"))
+
+mastercode = case_when(!grepl("UNK", "species_code") & is.na("species_code")~ "UNK")
+
+ 
+cps10 <- cps10 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+
+mastercode = case_when(!is.na(changed_to_the_new_spp)~ change_to_new, TRUE ~ "species_code", species)
+
+
+
+
+```
 
 
 
