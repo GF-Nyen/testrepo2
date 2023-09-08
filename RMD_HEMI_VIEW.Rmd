@@ -208,45 +208,6 @@ ggplot(hemisum[which(hemisum$n_seedlings>0),],aes(lai_2000_lin, n_seedlings))+
     geom_smooth(se=F)
 
 ```
-```{r}
-
-ggplot(hemisum, aes(ppfd_total_under_per_day_m_jor_mol_m2day, mean_height))+
-  geom_point() +
-    geom_smooth(method = "lm", se=F)
-    
-ggplot(hemisum, aes(ppfd_total_under_per_day_m_jor_mol_m2day, mean_height))+
-  geom_point() +
-    geom_smooth(se=F)      
-
-ggplot(hemisum[which(hemisum$mean_height>0),], aes(gap_fraction, mean_height))+
-  geom_point() +
-    geom_smooth(se=F)
-
-#bad dont use
-ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(gap_fraction, mean_height))+
-  geom_point() +
-    geom_smooth(method = "lm", se=F)
-
-#also bad?
-ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(openness, mean_height))+
-  geom_point() +
-    geom_smooth(method = "lm", se=F)
-
-
-ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(openness, mean_height))+
-  geom_point() +
-    geom_smooth(se=F)
-
-ggplot(hemisum[which(hemisum$n_seedlings>0),], aes(lai_2000_lin, mean_height))+
-  geom_point() +
-    geom_smooth(method = "lm", se=F)
-
-ggplot(hemisum, aes(lai_2000_lin, n_seedlings))+
-  geom_point() +
-   geom_smooth(se=F)
-   
-
-```
 
 ```{r "how about some occurance histograms"}
 
@@ -263,109 +224,32 @@ ggplot(poolsum[which(hemisum$n_seedlings>0),], aes(x=openness)) +
 # Dpark is x -- n_seedlings
 #TotN is y -- Openness
 
-plot(poolsum$openness, poolsum$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness")
+#plot(poolsum$openness, poolsum$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness")
 
-M1 <- glm(n_seedlings ~ openness, family = poisson, data = poolsum)
-poolsum %>% glm(formula = openness ~ n_seedlings, family = poisson)
-summary(M1)
+#M1 <- glm(n_seedlings ~ openness, family = poisson, data = poolsum)
+#poolsum %>% glm(formula = openness ~ n_seedlings, family = poisson)
+#summary(M1)
 
-explanatory_data <- poolsum %>% 
-    select(openness)
+#explanatory_data <- poolsum %>% 
+ #   select(openness)
 
-predict(M1, explanatory_data)
+#predict(M1, explanatory_data)
 
-residuals(M1)
+#residuals(M1)
 
-GEX <- predict(M1, newdata = explanatory_data, type = "link", se= T)
-FEX <- exp(GEX$fit)
-FSEUP <- exp(GEX$fit + 1.96 * GEX$se.fit)
-FSELOW <- exp(GEX$fit - 1.96 * GEX$se.fit)
-lines(explanatory_data$openness, FEX, lty=1)
-
-M1 %>% glance(
-)
+#GEX <- predict(M1, newdata = explanatory_data, type = "link", se= T)
+#FEX <- exp(GEX$fit)
+#FSEUP <- exp(GEX$fit + 1.96 * GEX$se.fit)
+#FSELOW <- exp(GEX$fit - 1.96 * GEX$se.fit)
+#lines(explanatory_data$openness, FEX, lty=1)
 
 
-
-plot(poolsum$openness, poolsum$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness") +
-lines(explanatory_data$openness, FEX, lty=1) +
-lines(explanatory_data$openness, FSEUP, lty = 2) +
-  lines(explanatory_data$openness, FSELOW, lty = 2)
-
-
-```
-
-```{r "Started to use Poisson GLM distributions?"}
-# Dpark is x -- n_seedlings
-#TotN is y -- Openness
+#plot(poolsum$openness, poolsum$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness") +
+#lines(explanatory_data$openness, FEX, lty=1) +
+#lines(explanatory_data$openness, FSEUP, lty = 2) +
+# lines(explanatory_data$openness, FSELOW, lty = 2)
 
 
-
-
-
-plot(poolsum$openness, (poolsum$n_seedlings>0), xlab ="Number of Seedlings", ylab = "Canopy Openness")
-
-M1 <- glm(n_seedlings ~ openness, family = gaussian, data = poolsum)
-poolsum %>% glm(formula = openness ~ n_seedlings, family = poisson)
-summary(M1)
-
-explanatory_data <- poolsum %>% 
-    select(openness)
-
-predict(M1, explanatory_data)
-
-residuals(M1)
-
-GEX <- predict(M1, newdata = GT0, type = "link", se= T)
-FEX <- exp(GEX$fit)
-FSEUP <- exp(GEX$fit + 1.96 * GEX$se.fit)
-FSELOW <- exp(GEX$fit - 1.96 * GEX$se.fit)
-lines(explanatory_data$openness, FEX, lty=1)
-
-
-GT0 <- filter(poolsum, n_seedlings >0) 
-predict(M1, GT0)
-
-
-plot(GT0$openness, GT0$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness") +
-lines(GT0$openness, FEX, lty=1) +
-lines(GT0$openness, FSEUP, lty = 2) +
-  lines(GT0$openness, FSELOW, lty = 2)
-
-
-```
-
-
-
-
-```{r}
-plot(poolsum$openness, poolsum$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness")
-
-M1 <- glm(n_seedlings ~ openness, family = poisson, data = poolsum)
-poolsum %>% glm(formula = openness ~ n_seedlings, family = poisson)
-summary(M1)
-
-explanatory_data <- poolsum %>% 
-    select(openness)
-
-predict(M1, explanatory_data)
-
-residuals(M1)
-
-GEX <- predict(M1, newdata = GT0, type = "link", se= T)
-FEX <- exp(GEX$fit)
-FSEUP <- exp(GEX$fit + 1.96 * GEX$se.fit)
-FSELOW <- exp(GEX$fit - 1.96 * GEX$se.fit)
-lines(GT0$openness, FEX, lty=1)
-
-
-
-
-
-plot(GT0$openness, GT0$n_seedlings, xlab ="Number of Seedlings", ylab = "Canopy Openness") +
-lines(GT0$openness, FEX, lty=1) +
-lines(GT0$openness, FSEUP, lty = 2) +
-  lines(GT0$openness, FSELOW, lty = 2)
 ```
 
 #as you move into using glmmadmb, use this link https://rdrr.io/github/bbolker/glmmadmb/man/glmm.admb.html
@@ -414,12 +298,14 @@ all2 <- bind_rows(tibble(cps7), tibble(cps8))
 all4 <- bind_rows(tibble(cps9), tibble(cps10))
 allthestuff <- bind_rows(all, all1, all2, all4)
 
-meta_dat_cp <- meta_dat %>% left_join(allthestuff, by = "plot_id")
+
   
 
 ```
 
 ```{r}
+
+
 
 SPlist <- allthestuff %>% select(species, species_code, changed_to_new_code_spp) %>% distinct(species_code)
 
@@ -429,19 +315,60 @@ mastercode <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R
 
 alldat <- allthestuff %>% left_join(sp_spelling, by = c("species_code", "changed_to_new_code_spp", "species"))
 
-mastercode = case_when(!grepl("UNK", "species_code") & is.na("species_code")~ "UNK")
+ 
 
+# mastercode = case_when(!grepl("UNK", "species_code") & is.na("species_code")~ "UNK")
+meta_dat_cp <- alldat %>% left_join(meta_dat, by = "plot_id")
  
 cps10 <- cps10 %>%  
     mutate(dried_weight_g = as.numeric(dried_weight_g))
 
-mastercode = case_when(!is.na(changed_to_the_new_spp)~ change_to_new, TRUE ~ "species_code", species)
+ # mastercode = case_when(!is.na(changed_to_the_new_spp)~ change_to_new, TRUE ~ "species_code", species)
 
 
+mastercode %>% distinct(species_code)
 
+
+gn_metadat <- meta_dat_cp %>% summarise(photo_number, plot_id, stand, transect, position, row, n_seedlings, slope_aspect, latitude_0_s, longitude_0_w, altitude, gap_fraction, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, species, species_code, dried_weight_g)
+
+ # library("writexl")
+ # write_xlsx(gn_metadat, "C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from//gn_metadata.xlsx")
+
+gn_metadat <- gn_metadat %>% mutate(species_code = recode(species_code, "ERCA" = "ERCN"))
+gn_metadat <- gn_metadat %>% mutate(species_code = recode(species_code, "DIVI" = "DIVR"))
 
 ```
 
 
+```{r "this is how you get the tables to pivot"}
+BITEME<- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/gn_metadata_wzeros.csv")
+
+library(tidyverse)
+
+data_no_naBITEME <- BITEME %>% 
+  filter(!is.na(species_code))
+
+spp_dataBITEME <- data_no_naBITEME %>% 
+  select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+  
+  #This is how I figured out which data were duplicated. 
+  spp_data <- data_no_na %>% 
+    select(plot_id, species_code, dried_weight_g) %>%  
+    dplyr::group_by(plot_id, species_code) %>%
+    dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
+    dplyr::filter(n > 1L)
+
+```
+
+
+```{r "lets run some vegans out of town"}
+library(vegan)
+diversity(spp_dataBITEME, index = "simpson")
+
+data(dune)
+str(dune)
+```
 
 
