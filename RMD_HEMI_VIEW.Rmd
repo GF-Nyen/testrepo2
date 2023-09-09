@@ -666,4 +666,32 @@ plot(B) + plot(ef_nor)
 
 ```
 
+```{r "permanova stuff}
+
+# i deleted 7_10-E because i didnt have row defined and didnt know how to fix it
+
+perm_weight <- input_dat %>% filter(!row_number() %in% c(94,95))
+
+perm_ef <- varibs  %>% 
+  filter(!is.na(openness))
+
+perm_ef <- perm_ef %>% 
+  filter(!is.na(row))
+
+perm_ef %>%
+     mutate(row=replace(row, NA, TO)) %>%
+     as.data.frame()
+
+
+seeded <- perm_ef %>% filter(stand== c(4,6,7,8))
+unsee
+
+adonis2(perm_weight ~ stand, data = perm_ef)
+
+
+adonis2(perm_weight ~ standbyrow, data= perm_ef)
+
+adonis2(perm_weight ~ row, data= seeded)
+
+```
 
