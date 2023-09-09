@@ -363,12 +363,307 @@ spp_dataBITEME <- data_no_naBITEME %>%
 ```
 
 
-```{r "lets run some vegans out of town"}
+```{r "lets run some vegans out of town: this chunk includes [ALL] spp"}
 library(vegan)
-diversity(spp_dataBITEME, index = "simpson")
+library(tidyverse)
 
-data(dune)
-str(dune)
+
+
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+dat1 <-data %>% 
+  filter(!is.na(species_code))
+
+dat2 <- dat1 %>% 
+  select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+input_dat <- dat2 %>% column_to_rownames("plot_id")
+
+# aRROW VECTORS MAN
+
+z <- metaMDS(comm = input_dat,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 2,
+             weakties = TRUE,
+             model = "global",
+             maxit = 300,
+             try = 40,
+             trymax = 120)
+plot(z)
+
+
+z$stress
+
+
+
+varibs <- dat1 %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+ distinct()
+
+varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
+
+
+vinput <- varibs %>% column_to_rownames("plot_id")
+
+
+env <- select(vinput, c(lai_2000_lin))
+ef <- envfit(z, env, permu = 999, na.rm=TRUE) 
+ef 
+
+
+  
+
+
+      ordiplot(z, type = "n")          #row type 
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+        ordihull(z,groups= varibs$row, draw="polygon",col="grey90",label=T)
+               plot(ef)
+        
+              ordiplot(z, type = "n")       #Stand Number
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+        ordihull(z,groups= varibs$stand, draw="polygon",col="green4",label=T)
+        
+                      ordiplot(z, type = "n")  # Standbyrow
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+        ordihull(z,groups= varibs$standbyrow, draw="polygon",col="purple1",label=T)
+        plot(ef)
+
+              ordiplot(z, type = "n")  # Spider
+              ordispider(z, groups=varibs$stand)
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites")
+       
+
+          ordiplot(z, type = "n")  # Spider
+              ordispider(z, groups=varibs$stand)
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+        
+
+
+
+### ordiplot3d ###
+
+library(vegan3d)
+
+z_hel <- decostand(input_dat, method = "hellinger")
+
+nmdsC <- metaMDS(comm = input_dat,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             weakties = TRUE,
+             model = "global",
+             maxit = 300,
+             try = 40,
+             trymax = 120)
+
+nmdsD <- scores(nmdsC, choices = 1:3, display = c("species"))
+nmdsD
+
+nmdsC$stress
+nmdsC$grstress
+ord <- cca(input_dat)
+out <- ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18)
+
+plot(ord)
+
+
+
+# The following two lines will create a 3d graph of points and vectors#
+ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
+#this will add text to the points
+text(out$xyz.convert(nmdsD), rownames(nmdsD), pos = 1)
+
+
+### This is to plot some shapes within the point cloud ###
+
+
+pl4 <- with(vinput, ordiplot3d(ord, pch=16))
+ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
+with(vinput, ordiellipse(pl4, vinput$row, draw = "poly", col = 1:2,
+  alpha = 60))
+
+
+### Here we plot in 3d with stands as shapes ###
+
+
+pl4 <- with(vinput, ordiplot3d(ord, pch=16))
+ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
+with(vinput, ordiellipse(pl4, vinput$stand, draw = "poly", col = 1:2,
+  alpha = 60))
+
+
+### 1. use argument 'envfit' within ordiplot3d - documentation in function
+
+# lets add some names to the points? #
+
+
+ordiplot(z,type="n") #Ordination plot function especially for congested plots
+orditorp(z,display="species",col="red",air=0.01) #The function adds text or points to ordination plots
+orditorp(z,display="sites",cex=0.25,air=0.01)
+
+```
+
+
+
+
+```{r" Chunky monkey without stand 3"}
+
+
+
+library(vegan)
+library(tidyverse)
+
+
+
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+dat1 <-data %>% 
+  filter(!is.na(species_code)) 
+
+dat1 %>%  filter(stand >=4)
+
+no3_1 <- dat1 %>% 
+  select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+input_dat <- dat2 %>% column_to_rownames("plot_id")
+
+# aRROW VECTORS MAN
+
+z <- metaMDS(comm = input_dat,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 2,
+             weakties = TRUE,
+             model = "global",
+             maxit = 300,
+             try = 40,
+             trymax = 120)
+plot(z)
+
+
+z$stress
+
+
+
+varibs <- dat1 %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+ distinct()
+
+varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
+
+
+vinput <- varibs %>% column_to_rownames("plot_id")
+
+
+env <- select(vinput, c(lai_2000_lin))
+ef <- envfit(z, env, permu = 999, na.rm=TRUE) 
+ef 
+
+
+  
+
+
+      ordiplot(z, type = "n")          #row type 
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+        ordihull(z,groups= varibs$row, draw="polygon",col="grey90",label=T)
+               plot(ef)
+        
+              ordiplot(z, type = "n")       #Stand Number
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+        ordihull(z,groups= varibs$stand, draw="polygon",col="green4",label=T)
+        
+                      ordiplot(z, type = "n")  # Standbyrow
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+        ordihull(z,groups= varibs$standbyrow, draw="polygon",col="purple1",label=T)
+        plot(ef)
+
+              ordiplot(z, type = "n")  # Spider
+              ordispider(z, groups=varibs$stand)
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+       
+        raremin <- min(rowSums(input_dat))
+        rarecurve(input_dat, raremin)
+        
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r "vegans that dont like their tofu cooked ~ rare ~ " }
+
+setwd("C:/Users/gn238/Downloads/")
+library(tidyverse)
+library(vegan)
+data <- read_csv("gn_metadata_wzeros.csv")
+
+
+no_rare <- data %>% count(species_code) %>% filter(n>=5)
+
+
+no_na_rare <- no_rare %>% 
+  filter(!is.na(species_code))
+
+test <- no_na_rare %>% left_join(data, by = "species_code")
+
+
+nor_spp_data <- test %>% 
+  select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+nor_head <- nor_spp_data %>% column_to_rownames("plot_id")
+
+B <- metaMDS(comm = input_dat,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 2,
+             weakties = TRUE,
+             model = "global",
+             maxit = 300,
+             try = 40,
+             trymax = 120)
+plot(B)
+
+
+B$stress
+### Vector ###
+varibs_nor <- test %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction ) %>%
+ distinct()
+
+vinput_nor <- varibs_nor %>% column_to_rownames("plot_id")
+
+
+env_nor <- select(vinput_nor, c(openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction))
+ef_nor <- envfit(B, env_nor, permu = 999, na.rm=TRUE) 
+ef_nor
+
+plot(B) + plot(ef_nor)
+
 ```
 
 
