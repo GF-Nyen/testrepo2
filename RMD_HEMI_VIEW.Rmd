@@ -366,7 +366,7 @@ spp_dataBITEME <- data_no_naBITEME %>%
 ```{r "lets run some vegans out of town: this chunk includes [ALL] spp"}
 library(vegan)
 library(tidyverse)
-
+library(broom)
 
 
 data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
@@ -413,7 +413,7 @@ ef <- envfit(z, env, permu = 999, na.rm=TRUE)
 ef 
 
 
-  
+  plot(ord)
 
 
       ordiplot(z, type = "n")          #row type 
@@ -477,12 +477,12 @@ plot(ord)
 
 
 # The following two lines will create a 3d graph of points and vectors#
-ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
+ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T) 
 ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
 #this will add text to the points
 text(out$xyz.convert(nmdsD), rownames(nmdsD), pos = 1)
 
-
+ef
 ### This is to plot some shapes within the point cloud ###
 
 
@@ -491,17 +491,24 @@ ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
 ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
 with(vinput, ordiellipse(pl4, vinput$row, draw = "poly", col = 1:2,
   alpha = 60))
+ef
 
 
+pl4 <- with(vinput, ordiplot3d(ord, pch=16))
+ef <- envfit(ord ~ gap_fraction, vinput, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
+with(vinput, ordiellipse(pl4, vinput$row, draw = "poly", col = 1:2,
+  alpha = 60))
+ef
 ### Here we plot in 3d with stands as shapes ###
 
 
 pl4 <- with(vinput, ordiplot3d(ord, pch=16))
 ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
 ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
-with(vinput, ordiellipse(pl4, vinput$stand, draw = "poly", col = 1:2,
+with(vinput, ordiellipse(pl4, vinput$stand, draw = "poly", col = 1:3,
   alpha = 60))
-
+ef
 
 ### 1. use argument 'envfit' within ordiplot3d - documentation in function
 
@@ -666,32 +673,72 @@ plot(B) + plot(ef_nor)
 
 ```
 
+
+```{r}
+### This adds TRT variables to seeded and unseeded
+
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "S")
+
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "U")
+
+trts <- bind_rows(trtseed,trtunseed)
+
+trts <- trts %>% column_to_rownames("plot_id")
+
+trts <- trts  %>% 
+  filter(!is.na(row))
+
+
+```
+
+
 ```{r "permanova stuff}
 
 # i deleted 7_10-E because i didnt have row defined and didnt know how to fix it
 
 perm_weight <- input_dat %>% filter(!row_number() %in% c(94,95))
 
+
 perm_ef <- varibs  %>% 
   filter(!is.na(openness))
 
+trt_ef <- varibs  %>% 
+    filter(!is.na(openness))
+trt_ef <- trt_ef %>% column_to_rownames("plot_id")
+
+trt_ef
+
+
 perm_ef <- perm_ef %>% 
-  filter(!is.na(row))
+  filter(!is.na())
 
 perm_ef %>%
      mutate(row=replace(row, NA, TO)) %>%
      as.data.frame()
 
 
-seeded <- perm_ef %>% filter(stand== c(4,6,7,8))
-unsee
+perm_weight %>% filter(MUEX >= 0.01)
+
+
 
 adonis2(perm_weight ~ stand, data = perm_ef)
 
 
 adonis2(perm_weight ~ standbyrow, data= perm_ef)
 
-adonis2(perm_weight ~ row, data= seeded)
+adonis2(perm_weight ~ add_column, data= trts)
+
+adonis2(perm_weight ~ row, data = trts)
 
 ```
 
