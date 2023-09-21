@@ -1,0 +1,367 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r "chonker"}
+# glmmadmb seems to be able to test for a treatment effect:
+library(tidyverse)
+library(glmmADMB)
+library(plyr)
+PhotoPoint <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+   
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+data <-data %>% 
+  filter(!is.na(species_code))
+
+data <- data %>% mutate(dried_weight_g = as.numeric(dried_weight_g))
+
+dat1 <- data %>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+
+
+
+#I want row sums on dat1 and to be combind with trts.
+
+
+dat1_long <- dat1 %>% 
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+
+
+ #build trt table#
+varibs <- PhotoPoint %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+ distinct()
+
+varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
+
+varibs<- varibs  %>% 
+  filter(!is.na(row))
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "1")
+
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "0")
+
+trts <- bind_rows(trtseed,trtunseed)
+trts <- rename(trts, seed_trt = add_column)
+ #build trt table#
+
+
+#join tallied weight to 
+trts <- trts %>% left_join(dat1_summary, by= "plot_id")
+
+
+# make sure everything is set up as a factor
+  trts <- trts %>%  
+       mutate(stand = as.factor(stand))
+  trts <- trts %>% 
+       mutate(seed_trt = as.factor(seed_trt))
+  trts<- trts %>% 
+       mutate(row = as.factor(row))
+
+
+#MODELING TIME#
+mod1 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt + biomass_sum,
+                 random = ~ (1 | seed_trt/stand),
+    family="nbinom", data=trts, zeroInflation = F)
+
+summary(mod1)
+#370.2
+
+head(trts)
+
+mod2 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + biomass_sum,
+                 random = ~ (1 | seed_trt/stand),
+    family="nbinom", data=trts, zeroInflation = T)
+
+summary(mod2) # !!!
+#Modeling time#
+
+mod2
+
+
+mod3 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt + biomass_sum,
+                 random = ~ (1 | row/stand),
+    family="nbinom", data=trts, zeroInflation = T)
+
+summary(mod3) # !!!
+
+#Modeling time#
+
+mod3
+VarCorr(mod3) #extract variance-covariance matrices of random effects
+vcov(mod3) # extract estimated variance-covariance matrix of coefficients
+AIC(mod3)
+stdEr(mod3)
+
+
+
+
+
+
+list <- tibble(14:44)
+exp_dat <- tibble(ppfd_total_under_per_day_m_jor_mol_m2day = 0:50)
+
+prediction_data <- exp_dat %>% mutate(
+                      n_seedlings = predict(mod1, exp_dat))
+
+summary(trts$ppfd_total_under_per_day_m_jor_mol_m2day)
+pred_dat <- exp_dat %>% mutate(n_seedlings = predict(mod2, exp_dat))
+exp_dat %>% mutate(ppfd_total_under_per_day_m_jor_mol_m2day = predict(mod2, exp_dat))
+
+
+
+
+ggplot(trts, aes(lai_2000_lin, n_seedlings))+
+  geom_point() +
+    geom_smooth(method= lai_200_lin ~ n_seedlings)
+
+
+
+      geom_point(data= pred_dat, color= "yellow3")
+
+
+
+ggplot(data=trts, aes(x=lai_2000_lin, y=n_seedlings)) +theme_minimal() +geom_point(aes(n_seedlings))
+
+# input_dat <- dat2 %>% column_to_rownames("plot_id")
+
+```
+
+
+```{r "chunky chunker"}
+
+
+
+
+
+
+        PhotoPoint <- PhotoPoint %>%  
+    mutate(stand = as.character(stand))
+
+
+input_dat$total <- rowSums(input_dat)
+
+
+
+dispersiontest(mod1)
+AER::dispersiontest(glm(n_seedlings ~ lai_2000_lin + seed_trt,
+    family=poisson, data= trts))
+
+
+
+mod1 <- glm(formula= n_seedlings ~ lai_2000_lin + seed_trt,
+    family='poisson', data=trts)
+
+summary(mod1) # !!!
+
+library(coefplot2)
+
+
+
+fit_hpoiss <- glmmadmb(n_seedlings ~ gap_fraction + Treatment,
+  random = ~1 | Treatment/stand,
+  data = subset(n_seedlings > 0),
+  family = "truncpoiss")
+  
+summary(fit_hpoiss) # !!!
+  
+fit_hnbinom1 <- glmmadmb(n_seedlings ~ gap_fraction + Treatment,
+  random = ~1 | Treatment/stand,
+  data = subset(Regen, n_seedlings > 0),
+  family = "truncnbinom1")
+  
+summary(fit_hnbinom1) # Pr(>|z|) for Treatment1 is not signficant
+
+# Items to consider:
+boxplot(n_seedlings ~ stand, data=Regen)
+# For the most part, regen #s are greater for the non-seeded stands than
+# for the seeded stands.
+
+plot(n_seedlings ~ gap_fraction, data=Regen)
+```
+
+
+```{r "this is to add up all of the biomass per plot"}
+
+   
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+dat1 <-data %>% 
+  filter(!is.na(species_code))
+
+dat2 <- dat1 %>% 
+  select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+dat2
+
+
+
+
+input_dat <- dat2 %>% column_to_rownames("plot_id")
+
+
+        PhotoPoint <- PhotoPoint %>%  
+    mutate(stand = as.character(stand))
+
+
+input_dat$total <- rowSums(input_dat)
+
+
+
+snag <- input_dat %>% summarise(plot_id,total)
+
+snag %>% left_join(trts)
+
+```
+
+
+```{r}
+### This adds TRT variables to seeded and unseeded
+
+
+
+
+
+
+trts <- trts %>% column_to_rownames("plot_id")
+trts<- trts  %>% 
+  filter(!is.na(row))
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+
+```{r "glmm"}
+
+library(glmmADMB)
+library(AER)
+(glmmadmb(n_seedlings ~ lai_2000_lin, data= meta_dat, family="poisson"))
+
+#this will get rid of the NA row
+#use <- varibs %>% filter(!row_number() %in% c(94))
+
+
+midnight <- glm(n_seedlings ~ lai_2000_lin, data= trts, family=poisson)
+
+summary(midnight)
+
+dispersiontest(midnight)
+
+V_dog <- var(meta_dat$n_seedlings, na.rm = 0)
+m_dog <- mean(meta_dat$n_seedlings, na.rm = 0)
+
+mean(tapply(meta_dat$n_seedlings,meta_dat$lai_2000_lin, V_dog)/tapply(meta_dat$n_seedlings,meta_dat$lai_2000_lin, m_dog) )
+
+ggplot(trts, aes(lai_2000_lin, n_seedlings))+
+  geom_point() +
+    geom_smooth(method= lai_200_lin ~ n_seedlings) +
+      geom_point(data= pred_dat, color= "yellow3")
+
+ggplot(data=meta_dat, aes(x=lai_2000_lin, y=n_seedlings)) +theme_minimal() + geom_point(aes(n_seedlings)) +stat_smooth(method="glm", formula= midnight, geom= "smooth")
+
+```
+
+```{r "TRUNK PO-BOI (truncated poison) Hurdle Model"}
+library(AICcmodavg)
+library(tidyverse)
+fit_hnbinom1 <- glmmadmb(formula= n_seedlings ~ lai_2000_lin + seed_trt,
+  data=subset(trts,n_seedlings>0),
+  family="truncnbinom1")
+
+fitcheck<- glmmadmb(formula= n_seedlings ~ lai_2000_lin + seed_trt,
+  data=trts,
+  family="nbinom2")
+summary(fitcheck)
+
+summary(fit_hnbinom1) # !!!
+summary(fit_count)
+
+ trts$nz <- as.numeric(trts$n_seedlings>0)
+fit_count<- glmmadmb(nz~1, 
+                      data = trts,
+                        family="binomial")
+fit_ccount <- glmmadmb(nz~lai_2000_lin + seed_trt,
+data=trts,
+family="binomial")
+aictab(fit_count, fit_ccount)
+
+summary(fit_ccount)
+summary(fit_count)
+
+
+
+
+```
+```{r}
+
+
+mod1 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+                 random = ~ (1 | seed_trt/stand),
+    family="nbinom", data=trts, zeroInflation = F)
+
+summary(mod1)
+#370.2
+list(head(trts))
+
+mod2 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+                 random = ~ (1 | seed_trt/stand),
+    family="nbinom", data=trts, zeroInflation = F)
+
+summary(mod2) # !!!
+
+mod2$residuals
+plot(mod2$residuals)
+qqplot()
+
+
+  
+                
+     
+        cps4 <- cps4 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps5 <- cps5 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps6 <- cps6 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps7 <- cps7 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps8 <- cps8 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps9 <- cps9 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+        cps10 <- cps10 %>%  
+    mutate(dried_weight_g = as.numeric(dried_weight_g))
+```
+
