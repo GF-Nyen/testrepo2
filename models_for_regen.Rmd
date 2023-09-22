@@ -11,7 +11,7 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 # glmmadmb seems to be able to test for a treatment effect:
 library(tidyverse)
 library(glmmADMB)
-library(plyr)
+
 PhotoPoint <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
 
    
@@ -38,7 +38,20 @@ dat1_summary <- dat1_long %>%
   group_by(plot_id) %>%
   summarise(biomass_sum = sum(biomass))
 
+## Row sums without PIPA included # # #
+ dat1_long1 <- dat1_long %>% 
+       mutate(species = as.character(species))
 
+
+dat1_long_noPIPA <- dat1_long1 %>% filter(species != "PIPA")
+
+dat1_summary_noPIPA <- dat1_long_noPIPA %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+
+
+## Row sums without PIPA included # # #
 
  #build trt table#
 varibs <- PhotoPoint %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
@@ -63,13 +76,14 @@ trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
 trtunseed <- trtunseed %>% add_column(add_column = "0")
 
 trts <- bind_rows(trtseed,trtunseed)
-trts <- rename(trts, seed_trt = add_column)
+
+trts<-trts%>% rename(seed_trt=add_column)
  #build trt table#
 
 
 #join tallied weight to 
 trts <- trts %>% left_join(dat1_summary, by= "plot_id")
-
+trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id")
 
 # make sure everything is set up as a factor
   trts <- trts %>%  
@@ -78,20 +92,42 @@ trts <- trts %>% left_join(dat1_summary, by= "plot_id")
        mutate(seed_trt = as.factor(seed_trt))
   trts<- trts %>% 
        mutate(row = as.factor(row))
+  trts<- trts %>% 
+       mutate(plot_id = as.factor(plot_id))
 
+  #NP Factors too
+   trtsNP <- trtsNP %>%  
+       mutate(stand = as.factor(stand))
+  trtsNP <- trtsNP %>% 
+       mutate(seed_trt = as.factor(seed_trt))
+  trtsNP<- trtsNP %>% 
+       mutate(row = as.factor(row))
+  trtsNP<- trtsNP %>% 
+       mutate(plot_id = as.factor(plot_id))
 
-#MODELING TIME#
-mod1 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt + biomass_sum,
-                 random = ~ (1 | seed_trt/stand),
-    family="nbinom", data=trts, zeroInflation = F)
+  #bianary mods ##
+  
+mod1 <- glmmadmb(n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt + biomass_sum,
+                 random = ~ (1 | stand/plot_id),
+    family="binomial", data=trts, zeroInflation = T)
 
 summary(mod1)
-#370.2
+
+
+  
+  
+#MODELING TIME#
+mod1 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt + biomass_sum,
+                 random = ~ (1 | stand/plot_id),
+    family="nbinom", data=trts, zeroInflation = T)
+
+summary(mod1)
+#366.1
 
 head(trts)
 
-mod2 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + biomass_sum,
-                 random = ~ (1 | seed_trt/stand),
+mod2 <- glmmadmb(formula= n_seedlings ~ biomass_sum + ppfd_total_under_per_day_m_jor_mol_m2day,
+                 random = ~ (1 | stand/seed_trt),
     family="nbinom", data=trts, zeroInflation = T)
 
 summary(mod2) # !!!
@@ -100,26 +136,122 @@ summary(mod2) # !!!
 mod2
 
 
-mod3 <- glmmadmb(formula= n_seedlings ~ ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt + biomass_sum,
-                 random = ~ (1 | row/stand),
-    family="nbinom", data=trts, zeroInflation = T)
+mod3 <- glmmadmb(formula= n_seedlings ~ seed_trt + biomass_sum + ppfd_total_under_per_day_m_jor_mol_m2day,
+                 random = ~ (1|stand/plot_id),
+    family="nbinom", data=trts, zeroInflation = T) 
 
 summary(mod3) # !!!
 
+
+mod3NP <- glmmadmb(formula= n_seedlings ~ seed_trt + biomass_sum.x + row + ppfd_total_under_per_day_m_jor_mol_m2day,
+                 random = ~ (1|stand/plot_id),
+    family="nbinom", data=trtsNP, zeroInflation = T) 
+
+summary(mod3NP) # 366.1
+
+
+resid(mod3NP)
+plot(resid(mod3NP))
+
+
+mod4NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x + ppfd_total_under_per_day_m_jor_mol_m2day,
+                 random = ~ (1|stand/plot_id),
+    family="nbinom", data=trtsNP, zeroInflation = T) 
+  
+  summary(mod4NP)
+#AIC 366.4
+  
+mod5NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x + ppfd_total_under_per_day_m_jor_mol_m2day + row, 
+                 random = ~ (1|stand/seed_trt),
+    family="nbinom", data=trtsNP, zeroInflation = T) 
+  
+  summary(mod5NP)
+#AIC 365.4 
+ 
+finalmodlist <- list(mod3NP,mod4NP,mod5NP)
+aictable<- data.frame("Model" = rep(" ",times=length(finalmodlist)),"AIC" = rep(NA,times=length(finalmodlist)))
+for(i in 1:length(finalmodlist)){
+  aictable$Model[i] <- as.character(finalmodlist[[i]]$formula)[3]
+  aictable$AIC[[i]]<- summary(finalmodlist[[i]])$aic[1]
+  aictable$nll[i] <- finalmodlist[[i]]$loglik
+}
+orderedAICtablet <- aictable[order(aictable$AIC),]
+orderedAICtablet$deltaAIC <- orderedAICtablet$AIC - orderedAICtablet$AIC[1]
+orderedAICtablet$rll <- exp(-0.5*orderedAICtablet$deltaAIC)
+orderedAICtablet$weight <- orderedAICtablet$rll/sum(orderedAICtablet$rll)
+orderedAICtablet$weight <- round(orderedAICtablet$weight,3)
+# write.csv(orderedAICtable_finalset, file = "AICtable_finalset.csv")
+
+
+
+### Find RMSE ###.
+preddat<- trts %>% summarise(biomass_sum, ppfd_total_under_per_day_m_jor_mol_m2day, stand, seed_trt, plot_id)
+disdat<- trts %>% summarise(biomass_sum, n_seedlings, ppfd_total_under_per_day_m_jor_mol_m2day, stand, seed_trt, plot_id)
+explanatory_data <- tibble(preddat)
+
+prediction_data <- explanatory_data %>% 
+  mutate(
+    n_seedlings = predict(mod3, explanatory_data)
+  )
+
+Fryday<- disdat %>% left_join(prediction_data, by = "plot_id")
+
+#this will give me rmse
+store <- sqrt(mean((Fryday$n_seedlings.y - Fryday$n_seedlings.x)^2))/145
+
+
+########## RMSE FOR No PIPA in Biomass for models ###########
+
+
+preddatNP<- trtsNP %>% summarise(biomass_sum.x, ppfd_total_under_per_day_m_jor_mol_m2day, stand, seed_trt, plot_id)
+disdatNP<- trtsNP %>% summarise(biomass_sum.x, n_seedlings, ppfd_total_under_per_day_m_jor_mol_m2day, stand, seed_trt, plot_id)
+explanatory_dataNP <- tibble(preddatNP)
+
+prediction_dataNP <- explanatory_dataNP %>% 
+  mutate(
+    n_seedlings = predict(mod3, explanatory_dataNP)
+  )
+
+FrydayNP<- disdatNP %>% left_join(prediction_dataNP, by = "plot_id")
+
+#this will give me rmse
+storeNP <- sqrt(mean((FrydayNP$n_seedlings.y - FrydayNP$n_seedlings.x)^2))/145
 #Modeling time#
 
 mod3
 VarCorr(mod3) #extract variance-covariance matrices of random effects
 vcov(mod3) # extract estimated variance-covariance matrix of coefficients
 AIC(mod3)
-stdEr(mod3)
+stdEr(mod3) #extract standard errors of coefficients
+ranef(mod3) # extract random effect coefficients (“BLUPs” or “conditional modes”)
+
+mod3$n
+anova(mod3, mod3)
+
+library(MuMIn) # makes a Pseudo-R-Squared for GLMMS
+
+#trythis<-((var(fitted)/((var(fitted)+3)/2))
+                
+#trythis
+             
+library(Metrics)
+
+
+(sqrt(sum(over1fun$n_seedlings.y - over1fun$n_seedlings.x)^2))/145
+
+
+print(rmse(over1fun$n_seedlings.y ,over1fun$n_seedlings.x))
+range(over1fun$n_seedlings.y)
+range(over1fun$n_seedlings.x)
+
+
+
+```
 
 
 
 
-
-
-list <- tibble(14:44)
+list<- tibble(14:44)
 exp_dat <- tibble(ppfd_total_under_per_day_m_jor_mol_m2day = 0:50)
 
 prediction_data <- exp_dat %>% mutate(
@@ -132,8 +264,15 @@ exp_dat %>% mutate(ppfd_total_under_per_day_m_jor_mol_m2day = predict(mod2, exp_
 
 
 
-ggplot(trts, aes(lai_2000_lin, n_seedlings))+
-  geom_point() +
+ggplot(trts, aes(lai_2000_lin, n_seedlings))
+  geom_point()
+  
+###
+
+
+
+
+geom_point(aes(prediction_data$n_seedlings, color= "blue1")) +
     geom_smooth(method= lai_200_lin ~ n_seedlings)
 
 
@@ -146,13 +285,35 @@ ggplot(data=trts, aes(x=lai_2000_lin, y=n_seedlings)) +theme_minimal() +geom_poi
 
 # input_dat <- dat2 %>% column_to_rownames("plot_id")
 
-```
 
 
 ```{r "chunky chunker"}
 
 
+pez <- ggplot(trts %>% filter(n_seedlings > 0), aes(lai_2000_lin, n_seedlings))+
+  geom_point() +
+  geom_point(data = prediction_data, aes(n_seedlings, color = "yellow2"))
+  
+  pez
 
+ggplot(trts, aes(biomass_sum, n_seedlings))+
+    theme_minimal() + geom_point() + geom_point(data = prediction_data, aes(y=n_seedlings, x= biomass_sum, color= "darkorange2"))
+
+ggplot(trts, aes(biomass_sum, n_seedlings))+
+    theme_minimal() + geom_point() + geom_point(data = prediction_data, aes(color= "darkorange2"))
+
+ggplot(over1, aes(biomass_sum, n_seedlings))+
+    geom_point(data = over1, aes(color= "darkorange2")) +geom_smooth(method="gam") + theme_minimal()
+
+
+
+
+geom_point(aes(prediction_data$n_seedlings, color= "blue1")) +
+    geom_smooth(method= lai_200_lin ~ n_seedlings)
+
+
+
+      geom_point(data= pred_dat, color= "yellow3")
 
 
 
