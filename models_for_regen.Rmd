@@ -126,8 +126,8 @@ summary(mod1)
 
 head(trts)
 
-mod2 <- glmmadmb(formula= n_seedlings ~ biomass_sum + ppfd_total_under_per_day_m_jor_mol_m2day,
-                 random = ~ (1 | stand/seed_trt),
+mod2 <- glmmadmb(formula= n_seedlings ~ biomass_sum,
+                 random = ~ (1 | stand/plot_id),
     family="nbinom", data=trts, zeroInflation = T)
 
 summary(mod2) # !!!
@@ -161,19 +161,42 @@ mod4NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x + ppfd_total_under_per_d
   summary(mod4NP)
 #AIC 366.4
   
-mod5NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x + ppfd_total_under_per_day_m_jor_mol_m2day + row, 
-                 random = ~ (1|stand/seed_trt),
+mod5NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x + ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt, 
+                 random = ~ (1|stand/plot_id),
     family="nbinom", data=trtsNP, zeroInflation = T) 
   
   summary(mod5NP)
 #AIC 365.4 
+  
+  mod6NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x,
+                                random = ~ (1|stand/plot_id),
+    family="nbinom", data=trtsNP, zeroInflation = T) 
+  
+  summary(mod6NP)
+  
+  
+
  
-finalmodlist <- list(mod3NP,mod4NP,mod5NP)
+    mod7NP <- glmmadmb(formula= n_seedlings ~  biomass_sum.x + seed_trt + row,
+                                random = ~ (1|stand/plot_id),
+    family="nbinom", data=trtsNP, zeroInflation = T) 
+  
+  summary(mod7NP)
+  
+  
+  
+  
+  
+  
+  
+  
+  
+finalmodlist <- list(mod3NP,mod4NP,mod5NP,mod6NP, mod7NP)
 aictable<- data.frame("Model" = rep(" ",times=length(finalmodlist)),"AIC" = rep(NA,times=length(finalmodlist)))
 for(i in 1:length(finalmodlist)){
   aictable$Model[i] <- as.character(finalmodlist[[i]]$formula)[3]
   aictable$AIC[[i]]<- summary(finalmodlist[[i]])$aic[1]
-  aictable$nll[i] <- finalmodlist[[i]]$loglik
+   aictable$nll[i] <- finalmodlist[[i]]$loglik
 }
 orderedAICtablet <- aictable[order(aictable$AIC),]
 orderedAICtablet$deltaAIC <- orderedAICtablet$AIC - orderedAICtablet$AIC[1]
@@ -191,7 +214,7 @@ explanatory_data <- tibble(preddat)
 
 prediction_data <- explanatory_data %>% 
   mutate(
-    n_seedlings = predict(mod3, explanatory_data)
+    n_seedlings = predict(mod6NP, explanatory_data)
   )
 
 Fryday<- disdat %>% left_join(prediction_data, by = "plot_id")
@@ -209,7 +232,7 @@ explanatory_dataNP <- tibble(preddatNP)
 
 prediction_dataNP <- explanatory_dataNP %>% 
   mutate(
-    n_seedlings = predict(mod3, explanatory_dataNP)
+    n_seedlings = predict(mod6NP, explanatory_dataNP)
   )
 
 FrydayNP<- disdatNP %>% left_join(prediction_dataNP, by = "plot_id")
@@ -249,41 +272,37 @@ range(over1fun$n_seedlings.x)
 ```
 
 
-
-
-list<- tibble(14:44)
-exp_dat <- tibble(ppfd_total_under_per_day_m_jor_mol_m2day = 0:50)
-
-prediction_data <- exp_dat %>% mutate(
-                      n_seedlings = predict(mod1, exp_dat))
-
-summary(trts$ppfd_total_under_per_day_m_jor_mol_m2day)
-pred_dat <- exp_dat %>% mutate(n_seedlings = predict(mod2, exp_dat))
-exp_dat %>% mutate(ppfd_total_under_per_day_m_jor_mol_m2day = predict(mod2, exp_dat))
+```{r "bootstrap some pseuto R^2 values"}
 
 
 
+sum(mod6NP$residuals(fit, type="pearson")^2)
 
-ggplot(trts, aes(lai_2000_lin, n_seedlings))
-  geom_point()
-  
-###
+mod6NP$residualdevience
+mod6NP$llf
+
+library(MuMIn)
+library(boot)
+r.squaredGLMM()
+mod1_boot <- boot(mod6NP, R=1000, f=r.squaredGLMM(), method="case") 
+confint(mod1_boot) 
+
+r.squaredGLMM(mod6NP)
+
+fit_func = function(data,ind){
+model = lm(mpg~cyl+disp+hp,data=data[ind,])
+c(coef(model),rsq = summary(model)$r.squared)
+}
+
+glmmadmb(formula= n_seedlings ~ biomass_sum.x,
+                                random = ~ (1|stand/plot_id),
+    family="nbinom", data=trtsNP, zeroInflation = T) 
+
+coefficients(mod6NP)
+rsq=summary(mod6NP$r.squared)
 
 
-
-
-geom_point(aes(prediction_data$n_seedlings, color= "blue1")) +
-    geom_smooth(method= lai_200_lin ~ n_seedlings)
-
-
-
-      geom_point(data= pred_dat, color= "yellow3")
-
-
-
-ggplot(data=trts, aes(x=lai_2000_lin, y=n_seedlings)) +theme_minimal() +geom_point(aes(n_seedlings))
-
-# input_dat <- dat2 %>% column_to_rownames("plot_id")
+```
 
 
 
