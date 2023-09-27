@@ -1,6 +1,8 @@
 ---
 title: "ExploringHemi"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 date: "2023-08-18"
 ---
 
@@ -12,16 +14,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library('tidyverse')
 
-library(sf)
+#library(sf)
 
 library(janitor)
 
 ```
+
 ```{r "glmmTMB"}
 #adam said that this package would be the best (glmmTMB)
-library("glmmTMB")
-library("lme4")
-library("nlme")
+#library("glmmTMB")
+#library("lme4")
+#library("nlme")
 
 ```
 
@@ -78,7 +81,7 @@ data2 <- read_csv("C:/Users/gn238/OneDrive - Mississippi State University/hemisp
 
 
 # this is for the jones center #       setwd("R:/graduate_students/Nyen/R - Copy/r_pull_from")
-setwd("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from")
+
 
 regendatarmd <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/regenplots.csv")
 #clean the data #take off the quadrat numbers and pool into sampling pints
@@ -140,9 +143,7 @@ poolposition <- poolposition %>%
 
 ```
 
-
-
-```{r "make some summary tables of the hemidata}
+```{r "make some summary tables of the hemidata"}
 bigdat <- new_summary %>% full_join(hemidata, by = c("stand", "transect", "position"))
 pooldat <- poolposition %>% full_join(hemidata, by = c("stand", "transect", "position"))
 data3 <- rename(data2, "photo_number" = "Photo#" )
@@ -169,8 +170,6 @@ histdata <- hemisum %>%
     reframe(hemisum[which(hemisum$n_seedlings>0),], mean_height, gap_fraction, openness, lai_2000_lin , ppfd_total_under_per_day_m_jor_mol_m2day )
 
 ```
-
-
 
 ```{r "lets get grapphy"}
 
@@ -220,6 +219,7 @@ ggplot(poolsum[which(hemisum$n_seedlings>0),], aes(x=openness)) +
 
 
 ```
+
 ```{r "Started to use Poisson GLM distributions?"}
 # Dpark is x -- n_seedlings
 #TotN is y -- Openness
@@ -252,13 +252,9 @@ ggplot(poolsum[which(hemisum$n_seedlings>0),], aes(x=openness)) +
 
 ```
 
-#as you move into using glmmadmb, use this link https://rdrr.io/github/bbolker/glmmadmb/man/glmm.admb.html
+#as you move into using glmmadmb, use this link <https://rdrr.io/github/bbolker/glmmadmb/man/glmm.admb.html>
 
-#for glmmTMB use: 
-https://cran.r-project.org/web/packages/glmmTMB/vignettes/glmmTMB.pdf 
-
-
-
+#for glmmTMB use: <https://cran.r-project.org/web/packages/glmmTMB/vignettes/glmmTMB.pdf>
 
 ```{r "lets write() a table for Josh"}
 
@@ -340,43 +336,157 @@ gn_metadat <- gn_metadat %>% mutate(species_code = recode(species_code, "DIVI" =
 ```
 
 
-```{r "this is how you get the tables to pivot"}
-BITEME<- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/gn_metadata_wzeros.csv")
 
+```{r}
+# glmmadmb seems to be able to test for a treatment effect:
 library(tidyverse)
+library(glmmADMB)
 
-data_no_naBITEME <- BITEME %>% 
+PhotoPoint <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+   
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+data <-data %>% 
   filter(!is.na(species_code))
 
-spp_dataBITEME <- data_no_naBITEME %>% 
-  select(plot_id, species_code, dried_weight_g) %>%
-  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+data <- data %>% mutate(dried_weight_g = as.numeric(dried_weight_g))
 
-  
-  #This is how I figured out which data were duplicated. 
-  spp_data <- data_no_na %>% 
-    select(plot_id, species_code, dried_weight_g) %>%  
-    dplyr::group_by(plot_id, species_code) %>%
-    dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
-    dplyr::filter(n > 1L)
+dat1 <- data %>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+
+dat146 <- dat1 %>% filter(!plot_id=="9-6-K") 
+
+#I want row sums on dat1 and to be combind with trts.
+
+
+dat1_long <- dat1 %>% 
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+## Row sums without PIPA included # # #
+ dat1_long1 <- dat1_long %>% 
+       mutate(species = as.character(species))
+
+
+dat1_long_noPIPA <- dat1_long1 %>% filter(species != "PIPA")
+
+dat1_summary_noPIPA <- dat1_long_noPIPA %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+
+
+## Row sums without PIPA included # # #
+
+ #build trt table#
+
+varibs <- PhotoPoint %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+ distinct()
+
+
+head(varibs)
+
+
+varibs<- varibs  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
+
+varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
+
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "1")
+
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "0")
+
+trts <- bind_rows(trtseed,trtunseed)
+
+trts<-trts%>% rename(seed_trt=add_column)
+ #build trt table#
+
+
+#join tallied weight to 
+trts <- trts %>% left_join(dat1_summary, by= "plot_id")
+trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id")
+
+# make sure everything is set up as a factor
+  trts <- trts %>%  
+       mutate(stand = as.factor(stand))
+  trts <- trts %>% 
+       mutate(seed_trt = as.factor(seed_trt))
+  trts<- trts %>% 
+       mutate(row = as.factor(row))
+  trts<- trts %>% 
+       mutate(plot_id = as.factor(plot_id))
+
+  #NP Factors too
+   trtsNP <- trtsNP %>%  
+       mutate(stand = as.factor(stand))
+  trtsNP <- trtsNP %>% 
+       mutate(seed_trt = as.factor(seed_trt))
+  trtsNP<- trtsNP %>% 
+       mutate(row = as.factor(row))
+  trtsNP<- trtsNP %>% 
+       mutate(plot_id = as.factor(plot_id))
 
 ```
 
+
+
+
+
+```{r "this is how you get the tables to pivot"}
+#BITEME<- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/gn_metadata_wzeros.csv")
+
+#library(tidyverse)
+
+#data_no_naBITEME <- BITEME %>% 
+ # filter(!is.na(species_code))
+
+#spp_dataBITEME <- data_no_naBITEME %>% 
+ # select(plot_id, species_code, dried_weight_g) %>%
+  #pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+  
+  #This is how I figured out which data were duplicated. 
+  #spp_data <- data_no_na %>% 
+   # select(plot_id, species_code, dried_weight_g) %>%  
+  #  dplyr::group_by(plot_id, species_code) %>%
+  #  dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
+  # dplyr::filter(n > 1L)
+
+```
 
 ```{r "lets run some vegans out of town: this chunk includes [ALL] spp"}
 library(vegan)
 library(tidyverse)
 library(broom)
 
+### https://fromthebottomoftheheap.net/2013/01/13/decluttering-ordination-plots-in-vegan-part-2-orditorp/
+#this will select which species get written out and which appear as dots/shapes 
 
 data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
 
 dat1 <-data %>% 
   filter(!is.na(species_code))
 
-dat2 <- dat1 %>% 
-  select(plot_id, species_code, dried_weight_g) %>%
-  pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+varibs <- dat1 %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, n_seedlings) %>% distinct()
+
+dat2 <- dat1%>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+dat2
 
 input_dat <- dat2 %>% column_to_rownames("plot_id")
 
@@ -399,8 +509,7 @@ z$stress
 
 
 
-varibs <- dat1 %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
- distinct()
+varibs <- dat1 %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, n_seedlings) %>% distinct()
 
 varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
 
@@ -408,13 +517,25 @@ varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
 vinput <- varibs %>% column_to_rownames("plot_id")
 
 
-env <- select(vinput, c(lai_2000_lin))
+env <- dplyr::select(vinput, c(lai_2000_lin))
 ef <- envfit(z, env, permu = 999, na.rm=TRUE) 
 ef 
+
+ord <- cca(input_dat)
 
 
   plot(ord)
 
+  #plot side/axis 1 and 2 of 3D figure
+  
+  
+  
+  
+  ordiplot(z, type = "n")
+orditorp(z,display="species",col="red",air=0.01, choices = c(1,2))
+orditorp(z,display="sites", )
+             plot(ef)
+  
 
       ordiplot(z, type = "n")          #row type 
 orditorp(z,display="species",col="red",air=0.01)
@@ -437,6 +558,8 @@ orditorp(z,display="sites", )
               ordispider(z, groups=varibs$stand)
 orditorp(z,display="species",col="red",air=0.01)
 orditorp(z,display="sites")
+
+
        
 
           ordiplot(z, type = "n")  # Spider
@@ -444,14 +567,17 @@ orditorp(z,display="sites")
 orditorp(z,display="species",col="red",air=0.01)
 orditorp(z,display="sites", )
         
-
+          ordiplot(z, type = "n")  # Standbyrow
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+        ordihull(z,groups= varibs$standbyrow, draw="polygon",col="purple1",label=T)
+        plot(ef)
 
 
 ### ordiplot3d ###
 
 library(vegan3d)
 
-z_hel <- decostand(input_dat, method = "hellinger")
 
 nmdsC <- metaMDS(comm = input_dat,
              autotransform = FALSE,
@@ -474,24 +600,136 @@ out <- ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18)
 
 plot(ord)
 
+######          $$$$$$$$BIG MONEY$$$$$$$$$ Seed set to 226,
+#ef <- envfit(ord ~ lai_2000_lin, vinput, permutations = 999, choices = 1:3, na.rm=T, iterations = 10000)
+#ef
+#####        $$$$$$$$$$BIG MONEY$$$$$$$$$$
 
 
+set.seed(226)
 # The following two lines will create a 3d graph of points and vectors#
-ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T) 
-ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
+
+dat1test <- dat1 %>% filter(!plot_id=="9-6-K") 
+dat1test <- dat1test %>% column_to_rownames("plot_id")
+
+dat5 <- dat1 %>% mutate(row = case_when( NA ~ "L"))
+
+vinput2 <- vinput$row %>% replace_na("L")
+
+ord1 <- cca(dat1test)
+
+vinput1 <- vinput %>% 
+  filter(!is.na(row))
+input_dat %>% filter(row.names("9-6-K"))
+
+
+dat146 <- dat146 %>% column_to_rownames("plot_id")
+
+
+nmdsE <- metaMDS(comm = dat146,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             weakties = TRUE,
+             model = "global",
+             maxit = 1000,
+             try = 1000,
+             trymax = 1000)
+summary(nmdsE)
+nmdsE$stress
+
+plot(nmdsE)
+vegan3d::ordiplot3d(nmdsE, display="species", choices = 1:3)
+
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 1:3, na.rm=T, iterations = 10000)
+ef
+
+ef1 <- envfit(nmdsE ~ stand, trts, permutations = 999, choices = 1:3, na.rm = T, iterations= 10000)
+ef1
+
+
+
+ef2 <- envfit(nmdsE ~ n_seedlings, trts, permutations = 999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef2
+
+ef3 <- envfit(nmdsE ~ seed_trt, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef3
+
+ef4 <- envfit(nmdsE ~ biomass_sum, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef4
+
+
+
+
+ef5
+plot(ord1, choices = (1,3))
+
+
+######## RIght below will call the end points of the ef vector ##########
+
+#en_coord_cont = as.data.frame(scores(ef, "vectors")
+
+ #                             geom_segment()                         
+
+
+#####        $$$$$$$$$$BIG MONEY$$$$$$$$$$
+
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
 #this will add text to the points
 text(out$xyz.convert(nmdsD), rownames(nmdsD), pos = 1)
 
-ef
 ### This is to plot some shapes within the point cloud ###
 
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "S")
 
-pl4 <- with(vinput, ordiplot3d(ord, pch=16))
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "U")
+
+trts <- bind_rows(trtseed,trtunseed)
+
+
+
+trts <- trts %>% column_to_rownames("plot_id")
+
+trts <- trts  %>% 
+  filter(!is.na(row))
+
+trts <- rename(trts, seed_trt = add_column)
+
+## ## ## ## ##
+
+pl4 <- with(trts, ordiplot3d(ord, pch=16))
 ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
 ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
-with(vinput, ordiellipse(pl4, vinput$row, draw = "poly", col = 1:2,
+with(trts, ordiellipse(pl4, trts$seed_trt, draw = "poly", col = 1:2,
   alpha = 60))
 ef
+
+
+pl4 <- with(trts, ordiplot3d(nmdsE, pch=16))
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
+with(trts, ordiellipse(pl4, trts$row, draw = "poly", col = 1:2,
+  alpha = 60))
+ef
+
+
+
+
+
 
 
 pl4 <- with(vinput, ordiplot3d(ord, pch=16))
@@ -518,14 +756,12 @@ ef
 ordiplot(z,type="n") #Ordination plot function especially for congested plots
 orditorp(z,display="species",col="red",air=0.01) #The function adds text or points to ordination plots
 orditorp(z,display="sites",cex=0.25,air=0.01)
-
+ef
 ```
 
+```{r "Chunky monkey without stand 3"}
 
-
-
-```{r" Chunky monkey without stand 3"}
-
+ print(z)
 
 
 library(vegan)
@@ -585,8 +821,8 @@ ef
       ordiplot(z, type = "n")          #row type 
 orditorp(z,display="species",col="red",air=0.01)
 orditorp(z,display="sites", )
-        ordihull(z,groups= varibs$row, draw="polygon",col="grey90",label=T)
-               plot(ef)
+        ordihull(z,groups= vinput$row, draw="polygon",col="grey90",label=T)
+               plot(ef2)
         
               ordiplot(z, type = "n")       #Stand Number
 orditorp(z,display="species",col="red",air=0.01)
@@ -604,29 +840,17 @@ orditorp(z,display="sites", )
 orditorp(z,display="species",col="red",air=0.01)
 orditorp(z,display="sites", )
        
-        raremin <- min(rowSums(input_dat))
-        rarecurve(input_dat, raremin)
+
         
 
 ```
 
-
-
-
-
-
-
-
-
-
-
-
 ```{r "vegans that dont like their tofu cooked ~ rare ~ " }
 
-setwd("C:/Users/gn238/Downloads/")
+
 library(tidyverse)
 library(vegan)
-data <- read_csv("gn_metadata_wzeros.csv")
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
 
 
 no_rare <- data %>% count(species_code) %>% filter(n>=5)
@@ -669,10 +893,9 @@ env_nor <- select(vinput_nor, c(openness, lai_2000_lin, ppfd_total_under_per_day
 ef_nor <- envfit(B, env_nor, permu = 999, na.rm=TRUE) 
 ef_nor
 
-plot(B) + plot(ef_nor)
+
 
 ```
-
 
 ```{r}
 ### This adds TRT variables to seeded and unseeded
@@ -682,35 +905,39 @@ seeded7 <- varibs %>% filter(stand == 7)
 seeded8 <- varibs %>% filter(stand == 8)
 seeded9 <- varibs %>% filter(stand == 9)
 trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
-trtseed <- trtseed %>% add_column(add_column = "S")
+trtseed <- trtseed %>% add_column(add_column = "45")
 
 unseed3 <- varibs %>% filter(stand == 3)
 unseed4 <- varibs %>% filter(stand == 4)
 unseed5 <- varibs %>% filter(stand == 5)
 unseed10 <- varibs %>% filter(stand == 10)
 trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
-trtunseed <- trtunseed %>% add_column(add_column = "U")
+trtunseed <- trtunseed %>% add_column(add_column = "143")
 
 trts <- bind_rows(trtseed,trtunseed)
+
+
 
 trts <- trts %>% column_to_rownames("plot_id")
 
 trts <- trts  %>% 
   filter(!is.na(row))
 
+trts <- rename(trts, seed_trt = add_column)
 
 ```
 
-
-```{r "permanova stuff}
+```{r "permanova stuff", cache=TRUE}
 
 # i deleted 7_10-E because i didnt have row defined and didnt know how to fix it
 
-perm_weight <- input_dat %>% filter(!row_number() %in% c(94,95))
+#perm_weight <- input_dat %>% filter(!row_number() %in% c(94,95))
 
 
 perm_ef <- varibs  %>% 
   filter(!is.na(openness))
+
+
 
 trt_ef <- varibs  %>% 
     filter(!is.na(openness))
@@ -720,25 +947,432 @@ trt_ef
 
 
 perm_ef <- perm_ef %>% 
-  filter(!is.na())
+  filter(!is.na(row))
 
-perm_ef %>%
-     mutate(row=replace(row, NA, TO)) %>%
-     as.data.frame()
+
 
 
 perm_weight %>% filter(MUEX >= 0.01)
 
 
 
-adonis2(perm_weight ~ stand, data = perm_ef)
+#adonis2(perm_weight ~ stand, data = perm_ef, permutations = 999999)
 
 
-adonis2(perm_weight ~ standbyrow, data= perm_ef)
+#adonis2(perm_weight ~ standbyrow, data= perm_ef, permutations = 999999)
 
-adonis2(perm_weight ~ add_column, data= trts)
+#adonis2(perm_weight ~ seed_trt, data= trts, permutations = 999999)
 
-adonis2(perm_weight ~ row, data = trts)
+#adonis2(perm_weight ~ row, data = trts, 999999)
 
 ```
 
+```{r "make some GGplots yo", cache=TRUE}
+
+library(tidyverse)
+library(vegan)
+library(ggrepel)
+
+env <- select(vinput, c(lai_2000_lin))
+ef <- envfit(z, env, permu = 999, na.rm=TRUE) 
+ef 
+
+indat<- input_dat %>% semi_join( by= colnames)
+
+
+nmdsC <- metaMDS(comm = input_dat,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             weakties = TRUE,
+             model = "global",
+             maxit = 300,
+             try = 40,
+             trymax = 120)
+
+nmdsD <- scores(nmdsC, choices = 1:3, display = c("species"))
+nmdsD
+
+SITE <- scores(nmdsC, choices = 1:3, display = c("sites"))
+SITE
+
+sitesize <- cbind(SITE, input_dat)
+sitesize
+
+
+ef <- envfit(ord ~ lai_2000_lin, vinput, permutations = 99999, choices = 1:3, na.rm=T, iterations = 10000)
+print(ef)
+
+#plot(ef)
+#scores(ef)
+ef
+
+
+
+
+############ ExAMPLE WITH ANDROPOGON SP. #####################
+ggplot(data=sitesize %>% filter(AN01 != 0), aes( x= NMDS1, y=NMDS2))+ 
+  geom_point(aes(size=AN01))
+
+ggplot(data=sitesize%>% filter(AN01 != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=AN01))
+
+ggplot(data=sitesize%>% filter(AN01 != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=AN01))
+############################################################
+
+
+###############NOW WITH SEEDED SPP. #######################
+# sose
+
+ggplot(data=sitesize%>% filter(SOSE != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=SOSE, alpha= SOSE))
+
+ggplot(data=sitesize%>% filter(SOSE != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=SOSE, alpha= SOSE)) 
+
+ggplot(data=sitesize%>% filter(SOSE != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=SOSE, alpha= SOSE))
+
+##### sonu
+
+ggplot(data=sitesize%>% filter(SONU != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=SONU, alpha=SONU))
+
+ggplot(data=sitesize%>% filter(SONU != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=SONU, alpha=SONU))
+
+ggplot(data=sitesize%>% filter(SONU != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=SONU, alpha=SONU))
+
+
+################ TEVI
+
+ggplot(data=sitesize%>% filter(TEVI != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=TEVI, alpha=TEVI))
+
+ggplot(data=sitesize%>% filter(TEVI != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=TEVI, alpha=TEVI))
+
+ggplot(data=sitesize%>% filter(TEVI != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=TEVI, alpha=TEVI))
+
+
+################### PAVI - SWITCHGRASS
+
+
+
+
+ggplot(data=sitesize%>% filter(PAVI != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=PAVI, alpha=PAVI))
+
+ggplot(data=sitesize%>% filter(PAVI != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=PAVI, alpha=PAVI))
+
+ggplot(data=sitesize%>% filter(PAVI != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=PAVI, alpha=PAVI))
+
+##############HERE I DID IT. I plotted the vectors and the weighted Species###############
+
+ef <- envfit(ord ~ lai_2000_lin, vinput, permutations = 999, choices = 1:3, na.rm=T, iterations = 10000)
+#specify that ef has 3 plains
+en_coord_cont = as.data.frame(scores(ef, "vectors") 
+#                              
+spp.scrs <- as.data.frame(scores(ef, display = "vectors"))
+#the following x1:x3 are pulled from this function
+
+x1 <- c(-0.2653404)
+x2 <- c(-0.005734696)
+x3 <- c(-0.07069975)
+
+
+ggplot(data=sitesize%>% filter(ARBE != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=ARBE, alpha=ARBE)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x2), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+ #add labels for env variables
+  labs(title="Ordination with environmental vectors")
+
+ggplot(data=sitesize%>% filter(ARBE != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=ARBE, alpha=ARBE)) + coord_fixed(1) +  
+  geom_segment(data = spp.scrs, aes(x = 0, xend=x2, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+ #add labels for env variables
+  labs(title="Ordination with environmental vectors")
+
+ggplot(data=sitesize%>% filter(ARBE != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=ARBE, alpha=ARBE)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+ #add labels for env variables
+  labs(title="Ordination with environmental vectors")
+	
+
+#######################################
+ 
+#ggplot(envfit(z, env, permu = 999, na.rm=TRUE)) 
+
+#ggplot(ef)
+
+
+#ef <- envfit(z, env, permu = 999, na.rm=TRUE) 
+
+#dune.spp.fit <- envfit(dune.mds, dune, permutations = 999) # this fits species vectors
+
+############################################
+spp.fit <- envfit(nmdsC, vinput, permutations = 999, na.rm = TRUE)
+
+site.scrs <- as.data.frame(scores(nmdsD, display = "sites"))
+
+spp.scrs <- cbind(spp.scrs, Sites = rownames(spp.scrs))
+
+
+#site.scrs <- cbind(site.scrs, )
+#ite.scrs <- cbind()
+
+spp.scrs <- as.data.frame(scores(spp.fit, display = "vectors"))
+
+spp.scrs <- cbind(spp.scrs, Sites = rownames(spp.scrs))
+
+spp.scrs <- cbind(spp.scrs, pval = spp.fit$vectors$pvals)
+
+head(spp.scrs)
+head(site.scrs)
+###############################################
+
+nmds.plot1 <- ggplot(site.scrs, aes(x=NMDS1, y=site.scrs$NMDS2))+ #sets up the plot
+  geom_point(aes(NMDS1, NMDS2), size = 2)+ 
+  coord_fixed()+
+  theme_classic()+ 
+  theme(panel.background = element_rect(fill = NA, colour = "blue3", size = 1, linetype = "solid"))+
+  labs(colour = "Management", shape = "Landuse")+ # add legend labels for Management and Landuse
+  theme(legend.position = "right", legend.text = element_text(size = 12), legend.title = element_text(size = 12), axis.text = element_text(size = 10)) # add legend at right of plot
+
+nmds.plot1 + labs(title = "NMDS1 & 2 ordination plot")
+
+
+
+nmds.plot2 <- ggplot(site.scrs, aes(x=NMDS1, y=NMDS3))+ #sets up the plot
+  geom_point(aes(NMDS1, NMDS3), size = 2)+ 
+  coord_fixed()+
+  theme_classic()+ 
+  theme(panel.background = element_rect(fill = NA, colour = "cyan2", size = 1, linetype = "solid"))+
+  labs(colour = "Management", shape = "Landuse")+ # add legend labels for Management and Landuse
+  theme(legend.position = "right", legend.text = element_text(size = 12), legend.title = element_text(size = 12), axis.text = element_text(size = 10)) # add legend at right of plot
+
+nmds.plot2 + labs(title = "NMDS1 & 3 ordination plot")
+
+### BELOW YO CHUNK ME
+
+nmds.plot3 <- ggplot(site.scrs, aes(x=NMDS2, y=NMDS3))+ #sets up the plot
+  geom_point(aes(NMDS2, NMDS3), size = 2)+ 
+  coord_fixed()+
+  theme_classic()+ 
+  theme(panel.background = element_rect(fill = NA, colour = "cyan2", size = 1, linetype = "solid"))+
+  labs(colour = "Management", shape = "Landuse")+ # add legend labels for Management and Landuse
+  theme(legend.position = "right", legend.text = element_text(size = 12), legend.title = element_text(size = 12), axis.text = element_text(size = 10)) # add legend at right of plot
+
+nmds.plot3 + labs(title = "NMDS2 & 3 ordination plot")
+
+ #this works but the vectors arnt named correctly #
+nmds.plot3+
+  geom_segment(data = spp.scrs, aes(x = 0, xend=NMDS1, y=0, yend=NMDS2), arrow = arrow(length = unit(0.25, "cm")), colour = "cyan2", lwd=0.3) +
+
+ ggrepel::geom_text_repel(data = spp.scrs, aes(x=NMDS1, y=NMDS2, label = "species"), cex = 4, direction = "both", segment.size = 0.25)+ #add labels for env variables
+  labs(title="Ordination with environmental vectors")
+### ABOVE YO CHUNK ME
+
+
+## ## ##This I declare a plot! ## ## ##
+data(dune.env)
+
+dattest <-data %>% 
+  filter(!is.na(species_code)) %>% filter(!is.na(row))
+
+
+dattest1 <- dattest %>% 
+  select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+dattest1 <- dattest1 %>% column_to_rownames("plot_id")
+               
+
+nmdsG <- metaMDS(comm = dattest1,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             weakties = TRUE,
+             model = "global",
+             maxit = 300,
+             try = 40,
+             trymax = 120)
+
+
+
+
+nmdsG
+take<- c(1,3)
+
+
+plot(nmdsE, choices = take, display = "species", type = "n") 
+points(nmdsE, choices = take, display= "species")
+plot(ef, choices = c(1,3))
+
+
+#orditorp(nmdsG,display="species", col= "red2", air=0.01)
+
+    pl<-ordiplot(nmdsE, choices= c(1,2), type = "n")          #row type 
+      points(pl, what = 'species', pch= 16, col = trts$seed_trt) 
+    with(trts,ordiellipse(nmdsE,groups=trts$seed_trt,choices=c(1,3), col= c(1, 34)))
+  #  orditorp(nmdsG, display="species", col= "red2", air=0.01)
+    plot(ef, choices = c(1,2))
+      
+      
+      
+      orditorp(nmdsE,display="species", col= "red2", air=0.01)
+      plot(ef, choices= c(1,3))
+      
+      plot(nmdsE)
+orditorp(nmdsE,display="species", choices = take ,col="red",air=0.01)
+orditorp(nmdsE,display="sites", )
+        ordihull(nmdsE,groups= trts$row, draw="polygon",col="grey90",label=T)
+               plot(ef)
+
+               
+               
+               
+
+               
+               
+
+# refference spider
+ ordiplot(z, type = "n")  # Spider
+              ordispider(z, groups=varibs$stand)
+orditorp(z,display="species",col="red",air=0.01)
+orditorp(z,display="sites", )
+
+
+
+#nmds.plot1+
+ #geom_segment(data = spp.fit, aes(x = 0, xend=NMDS1, y=0, yend=NMDS2), arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd=0.3) +
+ #ggrepel::geom_text_repel(data = spp.fit, aes(x=NMDS1, y=NMDS2, label = "species"), cex = 4, direction = "both", segment.size = 0.25)+ #add labels for env variables
+#labs(title="Ordination with environmental vectors")
+
+nmds.plot2+
+# geom_segment(data = spp.scrs, aes(x = 0, xend=NMDS2, y=0, yend=NMDS3), arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd=0.3) +
+# ggrepel::geom_text_repel(data = spp.scrs, aes(x=NMDS1, y=NMDS2, label = Species), cex = 4, direction = "both", segment.size = 0.25)+ #add labels for env variables
+#  labs(title="Ordination with environmental vectors")
+```
+
+```{r}
+library(cowplot)
+
+ef <- envfit(ord ~ lai_2000_lin, vinput, permutations = 999, choices = 1:3, na.rm=T, iterations = 10000)
+#specify that ef has 3 plains
+en_coord_cont = as.data.frame(scores(ef, "vectors")
+spp.scrs <- as.data.frame(scores(ef, display = "vectors"))
+#the following x1:x3 are pulled from this function
+
+x1 <- c(-0.2653404)
+x2 <- c(-0.005734696)
+x3 <- c(-0.07069975)
+
+
+
+ef
+
+
+
+# WIREGRASS
+ w1 <- ggplot(data=sitesize%>% filter(ARBE != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=ARBE, alpha=ARBE)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x2), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Wiregrass Ordination w/ LAI vector")
+
+ 
+w2 <- ggplot(data=sitesize%>% filter(ARBE != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=ARBE, alpha=ARBE)) + coord_fixed(1) +  
+  geom_segment(data = spp.scrs, aes(x = 0, xend=x2, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) 
+
+w3 <- ggplot(data=sitesize%>% filter(ARBE != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=ARBE, alpha=ARBE)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3)
+
+	
+plot_grid(w1, w2, w3, labels = c('A', 'B', 'c'), label_size = 12)
+
+# GOATS RUE
+ggplot(data=sitesize%>% filter(TEVI != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=TEVI, alpha=TEVI)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x2), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+ggplot(data=sitesize%>% filter(TEVI != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=TEVI, alpha=TEVI)) + coord_fixed(1) +  
+  geom_segment(data = spp.scrs, aes(x = 0, xend=x2, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+ggplot(data=sitesize%>% filter(TEVI != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=TEVI, alpha=TEVI)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+	
+plot_grid(w1, w2, w3, labels = c('A', 'B', 'c'), label_size = 12)
+
+# YELLOW INDIANGRASS
+ggplot(data=sitesize%>% filter(SONU != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=SONU, alpha=SONU)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x2), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+ggplot(data=sitesize%>% filter(SONU != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=SONU, alpha=SONU)) + coord_fixed(1) +  
+  geom_segment(data = spp.scrs, aes(x = 0, xend=x2, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+ggplot(data=sitesize%>% filter(SONU != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=SONU, alpha=SONU)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+plot_grid(w1, w2, w3, labels = c('A', 'B', 'c'), label_size = 12)
+
+# lOPSIDED INDIANGRASS
+ggplot(data=sitesize%>% filter(SOSE != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=SOSE, alpha=SOSE)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x2), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+ggplot(data=sitesize%>% filter(SOSE != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=SOSE, alpha=SOSE)) + coord_fixed(1) +  
+  geom_segment(data = spp.scrs, aes(x = 0, xend=x2, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+ggplot(data=sitesize%>% filter(SOSE != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=SOSE, alpha=SOSE)) + coord_fixed(1)+
+   geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+plot_grid(w1, w2, w3, labels = c('A', 'B', 'c'), label_size = 12)
+
+#ANDROPOGON SP (COULD BE LITTLE BLUESTEM)
+A1 <- ggplot(data=sitesize%>% filter(AN01 != 0), aes( x= NMDS1, y=NMDS2)) + 
+  geom_point(aes(size=AN01, alpha=AN01)) + coord_fixed(1)+
+   #geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x2), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+A2 <- ggplot(data=sitesize%>% filter(AN01 != 0), aes(x=NMDS2, y=NMDS3))+ 
+  geom_point(aes(size=AN01, alpha=AN01)) + coord_fixed(1) +  
+ # geom_segment(data = spp.scrs, aes(x = 0, xend=x2, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+A3 <- ggplot(data=sitesize%>% filter(AN01 != 0), aes(x=NMDS1, y=NMDS3))+ 
+  geom_point(aes(size=AN01, alpha=AN01)) + coord_fixed(1)+
+  # geom_segment(data = spp.scrs, aes(x = 0, xend=x1, y=0, yend=x3), arrow = arrow(length = unit(0.25, "cm")), colour = "blue2", lwd=0.3) +
+  labs(title="Ordination with environmental vectors")
+
+plot_grid(A1, A2, A3, labels = c('A', 'B', 'c'), label_size = 12)
+
+
+
+
+```

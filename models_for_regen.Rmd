@@ -183,12 +183,11 @@ mod5NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x + ppfd_total_under_per_d
   
   summary(mod7NP)
   
+
   
-  
-  
-  
-  
-  
+filt0 <- filter(trts,seed_trt == 0)
+ columntotal
+  sum(filt0$biomass_sum)
   
   
 finalmodlist <- list(mod3NP,mod4NP,mod5NP,mod6NP, mod7NP)
@@ -273,8 +272,18 @@ range(over1fun$n_seedlings.x)
 
 
 ```{r "bootstrap some pseuto R^2 values"}
+library(car)
 
 
+  beta1 <- glmm.admb(formula= n_seedlings ~ biomass_sum.x,
+                                random = ~ (1|stand/plot_id),
+    family="b", data=trtsNP, zeroInflation = F) 
+  
+  
+  
+var(mod6NP)
+
+Boot
 
 sum(mod6NP$residuals(fit, type="pearson")^2)
 
@@ -284,12 +293,26 @@ mod6NP$llf
 library(MuMIn)
 library(boot)
 r.squaredGLMM()
-mod1_boot <- boot(mod6NP, R=1000, f=r.squaredGLMM(), method="case") 
+library(performance)
+
+coef(mod6NP)
+
+Boot(mod6NP)
+MuMIn::r.squaredGLMM(mod6NP)
+contrasts(mod6NP)
+mod6NP$fitted=fitted(mod6NP)
+
+
+mod6NP_boot <- car::Boot(beta1, R=1000, f=coef, method="case")
+
+r2(beta1)
+
+mod1_boot <- car::Boot(beta1, R=1000, f=MuMIn::r.squaredGLMM, method="case") 
 confint(mod1_boot) 
 
-r.squaredGLMM(mod6NP)
+MuMIn::r.squaredGLMM(beta1, options(MuMIn.noUpdateWarning = TRUE))
 
-fit_func = function(data,ind){
+ fit_func = function(data,ind){
 model = lm(mpg~cyl+disp+hp,data=data[ind,])
 c(coef(model),rsq = summary(model)$r.squared)
 }
