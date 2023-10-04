@@ -16,7 +16,7 @@ PhotoPoint <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
 
    
 data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
-
+data <- data %>% mutate(species_code = coalesce(species_code,species))
 data <-data %>% 
   filter(!is.na(species_code))
 
@@ -184,13 +184,12 @@ mod5NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x + ppfd_total_under_per_d
   summary(mod7NP)
   
 
+  tots <- colSums(input_dat)
+tots
+  fivenum(tots)
+  tots[2]
   
-filt0 <- filter(trts,seed_trt == 0)
- columntotal
-  sum(filt0$biomass_sum)
-  
-  
-finalmodlist <- list(mod3NP,mod4NP,mod5NP,mod6NP, mod7NP)
+finalmodlist <- list(mod3NP,mod5NP,mod6NP, mod7NP)
 aictable<- data.frame("Model" = rep(" ",times=length(finalmodlist)),"AIC" = rep(NA,times=length(finalmodlist)))
 for(i in 1:length(finalmodlist)){
   aictable$Model[i] <- as.character(finalmodlist[[i]]$formula)[3]
@@ -566,5 +565,23 @@ qqplot()
     mutate(dried_weight_g = as.numeric(dried_weight_g))
         cps10 <- cps10 %>%  
     mutate(dried_weight_g = as.numeric(dried_weight_g))
+```
+
+
+
+```{r "ggplots for PPPTTT presentation"}
+
+standseedlings <- ggplot(trts, aes(x = stand, y= n_seedlings, fill= n_seedlings)) + 
+  geom_boxplot(fill = "chartreuse2", outlier.shape =23, outlier.color = "black")+ 
+  theme_minimal()+
+  labs(x= "Stand", y= "Number of Seedlings")
+ggsave(filename= "standsseedlings.png", plot = standseedlings ,path= "C:/Users/gn238/OneDrive - Mississippi State University/" )
+
+
+
+p <- standseedlings
+png("mtcars.png")
+print(p)
+dev.off()
 ```
 

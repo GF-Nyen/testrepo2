@@ -468,7 +468,7 @@ trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id")
 
 ```
 
-```{r "lets run some vegans out of town: this chunk includes [ALL] spp"}
+```{r "USE THIS CHUNK"}
 library(vegan)
 library(tidyverse)
 library(broom)
@@ -478,48 +478,63 @@ library(broom)
 
 data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
 
-dat1 <-data %>% 
+data <-data %>% 
   filter(!is.na(species_code))
 
-varibs <- dat1 %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, n_seedlings) %>% distinct()
+data <- data %>% filter(!plot_id=="9-6-K")
 
-dat2 <- dat1%>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+#varibs <- data %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, n_seedlings) 
+#varibs$row %>% replace_na("L")
+
+varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+ distinct()
+
+
+varibs<- varibs  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
+
+
+
+dat1 <- data%>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
   pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
 
-dat2
 
-input_dat <- dat2 %>% column_to_rownames("plot_id")
+#add up spp weights to pool for each plot
+dat1_long <- dat1 %>% 
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
 
-# aRROW VECTORS MAN
-
-z <- metaMDS(comm = input_dat,
-             autotransform = FALSE,
-             distance = "bray",
-             engine = "monoMDS",
-             k = 2,
-             weakties = TRUE,
-             model = "global",
-             maxit = 300,
-             try = 40,
-             trymax = 120)
-plot(z)
-
-
-z$stress
+dat1_summary <- dat1_long %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
 
 
 
-varibs <- dat1 %>% summarise(plot_id, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, n_seedlings) %>% distinct()
+#vinput <- varibs %>% column_to_rownames("plot_id")
+#vinput <- varibs %>% column_to_rownames("plot_id")
 
-varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
-
-
-vinput <- varibs %>% column_to_rownames("plot_id")
+input_dat <- dat1 %>% column_to_rownames("plot_id")
 
 
-env <- dplyr::select(vinput, c(lai_2000_lin))
-ef <- envfit(z, env, permu = 999, na.rm=TRUE) 
-ef 
+ord1 <- cca(input_dat)
+
+#vinput1 <- vinput %>% 
+#  filter(!is.na(row))
+#input_dat %>% filter(row.names("9-6-K"))
+
+
+####################### maybe I need this ### dat146 <- dat146 %>% column_to_rownames("plot_id")
+
+
+
+
+
+
+
+
+
+
+#env <- dplyr::select(vinput, c(lai_2000_lin))
+#ef <- envfit(z, env, permu = 999, na.rm=TRUE) 
+#ef 
 
 ord <- cca(input_dat)
 
@@ -528,161 +543,7 @@ ord <- cca(input_dat)
 
   #plot side/axis 1 and 2 of 3D figure
   
-  
-  
-  
-  ordiplot(z, type = "n")
-orditorp(z,display="species",col="red",air=0.01, choices = c(1,2))
-orditorp(z,display="sites", )
-             plot(ef)
-  
-
-      ordiplot(z, type = "n")          #row type 
-orditorp(z,display="species",col="red",air=0.01)
-orditorp(z,display="sites", )
-        ordihull(z,groups= varibs$row, draw="polygon",col="grey90",label=T)
-               plot(ef)
-        
-              ordiplot(z, type = "n")       #Stand Number
-orditorp(z,display="species",col="red",air=0.01)
-orditorp(z,display="sites", )
-        ordihull(z,groups= varibs$stand, draw="polygon",col="green4",label=T)
-        
-                      ordiplot(z, type = "n")  # Standbyrow
-orditorp(z,display="species",col="red",air=0.01)
-orditorp(z,display="sites", )
-        ordihull(z,groups= varibs$standbyrow, draw="polygon",col="purple1",label=T)
-        plot(ef)
-
-              ordiplot(z, type = "n")  # Spider
-              ordispider(z, groups=varibs$stand)
-orditorp(z,display="species",col="red",air=0.01)
-orditorp(z,display="sites")
-
-
-       
-
-          ordiplot(z, type = "n")  # Spider
-              ordispider(z, groups=varibs$stand)
-orditorp(z,display="species",col="red",air=0.01)
-orditorp(z,display="sites", )
-        
-          ordiplot(z, type = "n")  # Standbyrow
-orditorp(z,display="species",col="red",air=0.01)
-orditorp(z,display="sites", )
-        ordihull(z,groups= varibs$standbyrow, draw="polygon",col="purple1",label=T)
-        plot(ef)
-
-
-### ordiplot3d ###
-
-library(vegan3d)
-
-
-nmdsC <- metaMDS(comm = input_dat,
-             autotransform = FALSE,
-             distance = "bray",
-             engine = "monoMDS",
-             k = 3,
-             weakties = TRUE,
-             model = "global",
-             maxit = 300,
-             try = 40,
-             trymax = 120)
-
-nmdsD <- scores(nmdsC, choices = 1:3, display = c("species"))
-nmdsD
-
-nmdsC$stress
-nmdsC$grstress
-ord <- cca(input_dat)
-out <- ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18)
-
-plot(ord)
-
-######          $$$$$$$$BIG MONEY$$$$$$$$$ Seed set to 226,
-#ef <- envfit(ord ~ lai_2000_lin, vinput, permutations = 999, choices = 1:3, na.rm=T, iterations = 10000)
-#ef
-#####        $$$$$$$$$$BIG MONEY$$$$$$$$$$
-
-
-set.seed(226)
-# The following two lines will create a 3d graph of points and vectors#
-
-dat1test <- dat1 %>% filter(!plot_id=="9-6-K") 
-dat1test <- dat1test %>% column_to_rownames("plot_id")
-
-dat5 <- dat1 %>% mutate(row = case_when( NA ~ "L"))
-
-vinput2 <- vinput$row %>% replace_na("L")
-
-ord1 <- cca(dat1test)
-
-vinput1 <- vinput %>% 
-  filter(!is.na(row))
-input_dat %>% filter(row.names("9-6-K"))
-
-
-dat146 <- dat146 %>% column_to_rownames("plot_id")
-
-
-nmdsE <- metaMDS(comm = dat146,
-             autotransform = FALSE,
-             distance = "bray",
-             engine = "monoMDS",
-             k = 3,
-             weakties = TRUE,
-             model = "global",
-             maxit = 1000,
-             try = 1000,
-             trymax = 1000)
-summary(nmdsE)
-nmdsE$stress
-
-plot(nmdsE)
-vegan3d::ordiplot3d(nmdsE, display="species", choices = 1:3)
-
-ef <- envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 1:3, na.rm=T, iterations = 10000)
-ef
-
-ef1 <- envfit(nmdsE ~ stand, trts, permutations = 999, choices = 1:3, na.rm = T, iterations= 10000)
-ef1
-
-
-
-ef2 <- envfit(nmdsE ~ n_seedlings, trts, permutations = 999, choices = 1:3, na.rm = T, iterations= 10000)
-
-ef2
-
-ef3 <- envfit(nmdsE ~ seed_trt, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 10000)
-
-ef3
-
-ef4 <- envfit(nmdsE ~ biomass_sum, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 10000)
-
-ef4
-
-
-
-
-ef5
-plot(ord1, choices = (1,3))
-
-
-######## RIght below will call the end points of the ef vector ##########
-
-#en_coord_cont = as.data.frame(scores(ef, "vectors")
-
- #                             geom_segment()                         
-
-
-#####        $$$$$$$$$$BIG MONEY$$$$$$$$$$
-
-ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
-#this will add text to the points
-text(out$xyz.convert(nmdsD), rownames(nmdsD), pos = 1)
-
-### This is to plot some shapes within the point cloud ###
+  ### This is to plot some shapes within the point cloud ###
 
 seeded6 <- varibs %>% filter(stand == 6)
 seeded7 <- varibs %>% filter(stand == 7)
@@ -702,18 +563,174 @@ trts <- bind_rows(trtseed,trtunseed)
 
 
 
-trts <- trts %>% column_to_rownames("plot_id")
+
 
 trts <- trts  %>% 
   filter(!is.na(row))
 
 trts <- rename(trts, seed_trt = add_column)
 
+trts <- trts %>% left_join(dat1_summary, by = "plot_id")
+trts <- trts %>% column_to_rownames("plot_id")
 ## ## ## ## ##
+  
+  
+#  ordiplot(z, type = "n")
+#orditorp(z,display="species",col="red",air=0.01, choices = c(1,2))
+#orditorp(z,display="sites", )
+#             plot(ef)
+  
+
+ #     ordiplot(z, type = "n")          #row type 
+#orditorp(z,display="species",col="red",air=0.01)
+#orditorp(z,display="sites", )
+ #       ordihull(z,groups= varibs$row, draw="polygon",col="grey90",label=T)
+#               plot(ef)
+        
+#              ordiplot(z, type = "n")       #Stand Number
+#orditorp(z,display="species",col="red",air=0.01)
+#orditorp(z,display="sites", )
+#       ordihull(z,groups= varibs$stand, draw="polygon",col="green4",label=T)
+        
+#                      ordiplot(z, type = "n")  # Standbyrow
+#orditorp(z,display="species",col="red",air=0.01)
+#orditorp(z,display="sites", )
+#        ordihull(z,groups= varibs$standbyrow, draw="polygon",col="purple1",label=T)
+#        plot(ef)
+
+#              ordiplot(z, type = "n")  # Spider
+#              ordispider(z, groups=varibs$stand)
+#orditorp(z,display="species",col="red",air=0.01)
+#orditorp(z,display="sites")
+
+
+       
+
+#          ordiplot(z, type = "n")  # Spider
+#              ordispider(z, groups=varibs$stand)
+#orditorp(z,display="species",col="red",air=0.01)
+#orditorp(z,display="sites", )
+        
+ #         ordiplot(z, type = "n")  # Standbyrow
+#orditorp(z,display="species",col="red",air=0.01)
+#orditorp(z,display="sites", )
+#        ordihull(z,groups= varibs$standbyrow, draw="polygon",col="purple1",label=T)
+#        plot(ef)
+
+
+### ordiplot3d ###
+
+library(vegan3d)
+
+
+# nmdsC <- metaMDS(comm = input_dat,
+#             autotransform = FALSE,
+#             distance = "bray",
+#             engine = "monoMDS",
+#             k = 3,
+#             weakties = TRUE,
+#             model = "global",
+#             maxit = 300,
+#             try = 40,
+#             trymax = 120)
+
+#nmdsD <- scores(nmdsC, choices = 1:3, display = c("species"))
+#nmdsD
+
+#nmdsC$stress
+#nmdsC$grstress
+#ord <- cca(input_dat)
+#out <- ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18)
+
+#plot(ord)
+
+######          $$$$$$$$BIG MONEY$$$$$$$$$ Seed set to 226,
+#ef <- envfit(ord ~ lai_2000_lin, vinput, permutations = 999, choices = 1:3, na.rm=T, iterations = 10000)
+#ef
+#####        $$$$$$$$$$BIG MONEY$$$$$$$$$$
+
+
+
+# The following two lines will create a 3d graph of points and vectors#
+
+varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
+
+
+#vinput <- varibs %>% column_to_rownames("plot_id")
+
+#dat1test <- dat1 %>% filter(!plot_id=="9-6-K") %>%  distinct()
+
+#dat1test <- dat1test %>% column_to_rownames("plot_id")
+
+#dat5 <- dat1 %>% mutate(row = case_when( NA ~ "L"))
+
+#vinput2 <- vinput$row %>% replace_na("L")
+
+#ord1 <- cca(dat1test)
+
+#vinput1 <- vinput %>% 
+#  filter(!is.na(row))
+#nput_dat %>% filter(row.names("9-6-K"))
+
+
+
+nmdsE <- metaMDS(comm = input_dat,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             weakties = TRUE,
+             model = "global",
+             maxit = 100000,
+             try = 100000,
+             trymax = 100000)
+summary(nmdsE)
+nmdsE$stress
+
+plot(nmdsE)
+vegan3d::ordiplot3d(nmdsE, display="species", choices = 1:3)
+
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, permutations = 999999, choices = 1:3, na.rm=T, iterations = 10000)
+ef
+
+ef1 <- envfit(nmdsE ~ stand, trts, permutations = 999999, choices = 1:3, na.rm = T, iterations= 10000)
+ef1
+
+
+
+ef2 <- envfit(nmdsE ~ n_seedlings, trts, permutations = 999999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef2
+
+ef3 <- envfit(nmdsE ~ seed_trt, trts, permutations = 999999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef3
+
+ef4 <- envfit(nmdsE ~ biomass_sum, trts, permutations = 999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef4
+
+#plot(ord1, choices = (1,3))
+
+
+######## RIght below will call the end points of the ef vector ##########
+
+#en_coord_cont = as.data.frame(scores(ef, "vectors")
+
+ #                             geom_segment()                         
+
+
+#####        $$$$$$$$$$BIG MONEY$$$$$$$$$$
+
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef2)
+#this will add text to the points
+#text(out$xyz.convert(nmdsE), rownames(nmdsE), pos = 1)
+
+
 
 pl4 <- with(trts, ordiplot3d(ord, pch=16))
-ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
-ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
 with(trts, ordiellipse(pl4, trts$seed_trt, draw = "poly", col = 1:2,
   alpha = 60))
 ef
@@ -733,8 +750,8 @@ ef
 
 
 pl4 <- with(vinput, ordiplot3d(ord, pch=16))
-ef <- envfit(ord ~ gap_fraction, vinput, choices = 1:3, na.rm=T)
-ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
+ef <- envfit(nmdsE ~ gap_fraction, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
 with(vinput, ordiellipse(pl4, vinput$row, draw = "poly", col = 1:2,
   alpha = 60))
 ef
@@ -742,8 +759,8 @@ ef
 
 
 pl4 <- with(vinput, ordiplot3d(ord, pch=16))
-ef <- envfit(ord ~ lai_2000_lin, vinput, choices = 1:3, na.rm=T)
-ordiplot3d(nmdsD, col = "red", ax.col= "black", pch = 18, envfit = ef)
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
 with(vinput, ordiellipse(pl4, vinput$stand, draw = "poly", col = 1:3,
   alpha = 60))
 ef
@@ -753,9 +770,9 @@ ef
 # lets add some names to the points? #
 
 
-ordiplot(z,type="n") #Ordination plot function especially for congested plots
-orditorp(z,display="species",col="red",air=0.01) #The function adds text or points to ordination plots
-orditorp(z,display="sites",cex=0.25,air=0.01)
+ordiplot(nmdsE,type="n") #Ordination plot function especially for congested plots
+orditorp(nmdsE,display="species",col="red",air=0.01) #The function adds text or points to ordination plots
+orditorp(nmdsE,display="sites",cex=0.25,air=0.01)
 ef
 ```
 
@@ -824,10 +841,10 @@ orditorp(z,display="sites", )
         ordihull(z,groups= vinput$row, draw="polygon",col="grey90",label=T)
                plot(ef2)
         
-              ordiplot(z, type = "n")       #Stand Number
-orditorp(z,display="species",col="red",air=0.01)
-orditorp(z,display="sites", )
-        ordihull(z,groups= varibs$stand, draw="polygon",col="green4",label=T)
+              ordiplot(nmdsE, type = "n")       #Stand Number
+orditorp(nmdsE,display="species",col="red",air=0.01)
+orditorp(nmdsE,display="sites", )
+        ordihull(nmdsE,groups= varibs$stand, draw="polygon",col="green4",label=T)
         
                       ordiplot(z, type = "n")  # Standbyrow
 orditorp(z,display="species",col="red",air=0.01)
@@ -930,40 +947,35 @@ trts <- rename(trts, seed_trt = add_column)
 ```{r "permanova stuff", cache=TRUE}
 
 # i deleted 7_10-E because i didnt have row defined and didnt know how to fix it
-
+#dat1 <- dat1 %>% filter(!plot_id=="9-6-K")
 #perm_weight <- input_dat %>% filter(!row_number() %in% c(94,95))
-
+input_dat <- dat1 %>% column_to_rownames("plot_id")
 
 perm_ef <- varibs  %>% 
   filter(!is.na(openness))
 
-
+input_dat %>% filter(!is.na(row))
 
 trt_ef <- varibs  %>% 
     filter(!is.na(openness))
 trt_ef <- trt_ef %>% column_to_rownames("plot_id")
 
-trt_ef
+library(janitor)
 
+dropsmallunks <- input_dat %>% clean_names() 
 
-perm_ef <- perm_ef %>% 
-  filter(!is.na(row))
-
-
-
-
-perm_weight %>% filter(MUEX >= 0.01)
+dropsmallunks <- dplyr::select(dropsmallunks, -c(unk_g7g, unk_g2b, unk_f1, unk_g3c, unk_f2, unk_g4d, unk_g4, unk_g2, unk_g4b, unk_g2, unk_g6f))
 
 
 
-#adonis2(perm_weight ~ stand, data = perm_ef, permutations = 999999)
+adonis2(dropsmallunks ~ stand, data = trts, permutations = 99999)
 
 
-#adonis2(perm_weight ~ standbyrow, data= perm_ef, permutations = 999999)
+#adonis2(input_dat ~ standbyrow, data= trts, permutations = 99999)
 
-#adonis2(perm_weight ~ seed_trt, data= trts, permutations = 999999)
+adonis2(input_dat ~ seed_trt, data= trts, permutations = 99999, parallel = clus)
 
-#adonis2(perm_weight ~ row, data = trts, 999999)
+adonis2(dropsmallunks ~ row, data = trts, permutations = 99999)
 
 ```
 
@@ -1189,7 +1201,7 @@ dattest <-data %>%
 
 
 dattest1 <- dattest %>% 
-  select(plot_id, species_code, dried_weight_g) %>%
+  dplyr::select(plot_id, species_code, dried_weight_g) %>%
   pivot_wider( names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
 
 dattest1 <- dattest1 %>% column_to_rownames("plot_id")
