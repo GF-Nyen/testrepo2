@@ -1,0 +1,202 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+
+```
+
+```{r}
+library(vegan)
+library(tidyverse)
+library(broom)
+
+
+
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+data <- data %>% mutate(species_code = coalesce(species_code,species))
+
+head(data)
+data <-data %>% filter(!is.na(species_code))
+
+data <- data %>% filter(!plot_id=="9-6-K")
+
+
+varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+ distinct()
+
+
+varibs<- varibs  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
+
+
+
+dat1 <- data%>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+
+#add up spp weights to pool for each plot
+dat1_long <- dat1 %>% 
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+
+
+input_dat <- dat1 %>% column_to_rownames("plot_id")
+ord1 <- cca(input_dat)
+
+ord <- cca(input_dat)
+
+  plot(ord)
+
+  #plot side/axis 1 and 2 of 3D figure
+  
+  ### This is to plot some shapes within the point cloud ###
+
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "S")
+
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "U")
+
+trts <- bind_rows(trtseed,trtunseed)
+
+trts <- trts  %>% 
+  filter(!is.na(row))
+
+trts <- rename(trts, seed_trt = add_column)
+
+trts <- trts %>% left_join(dat1_summary, by = "plot_id")
+trts <- trts %>% column_to_rownames("plot_id")
+
+
+library(vegan3d)
+
+
+varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
+
+library(vegan)
+library(parallel)
+detectCores()
+
+clus <- parallel::makeCluster(15) # create 
+
+clusterEvalQ(clus, library(vegan)) # allow vegan
+
+nmds_seed<- runif(1, min= 0, max = 1000)
+print(nmds_seed)
+set.seed(seed = nmds_seed)
+nmdsE <- metaMDS(comm = input_dat,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             parallel = clus,
+             weakties = TRUE,
+             model = "global",
+             maxit = 100,
+             try = 100,
+             trymax = 100)
+summary(nmdsE)
+nmdsE$stress
+
+
+#using the cluster (aka - clus) makes it run 15% faster.
+plot(nmdsE)
+vegan3d::ordiplot3d(nmdsE, display="species", choices = 1:3)
+
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, permutations = 9999, choices = 1:3, na.rm=T, iterations = 10000)
+ef
+
+ef1 <- envfit(nmdsE ~ stand, trts, permutations = 9999, choices = 1:3, na.rm = T, iterations= 10000)
+ef1
+
+
+ef2 <- envfit(nmdsE ~ n_seedlings, trts, permutations = 9999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef2
+
+ef3 <- envfit(nmdsE ~ seed_trt, trts, permutations = 9999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef3
+
+ef4 <- envfit(nmdsE ~ biomass_sum, trts, permutations = 9999, choices = 1:3, na.rm = T, iterations= 10000)
+
+ef4
+
+
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef2)
+
+
+pl4 <- with(trts, ordiplot3d(nmdsE, pch=16))
+#ef <- envfit(nmdsE ~ lai_2000_lin, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef1)
+with(trts, ordiellipse(pl4, trts$seed_trt, draw = "poly", col = 1:2,
+  alpha = 60))
+ef1
+ef
+ef1
+ef2
+ef3
+ef4
+
+pl4 <- with(trts, ordiplot3d(nmdsE, pch=16))
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
+with(trts, ordiellipse(pl4, trts$row, draw = "poly", col = 1:2,
+  alpha = 60))
+ef3
+
+
+
+
+
+pl4 <- with(trts, ordiplot3d(ord, pch=16))
+ef <- envfit(nmdsE ~ gap_fraction, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
+with(trts, ordiellipse(pl4, trts$row, draw = "poly", col = 1:2,
+  alpha = 60))
+ef
+
+
+
+pl4 <- with(trts, ordiplot3d(ord, pch=16))
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
+with(trts, ordiellipse(pl4, trts$stand, draw = "poly", col = 1:3,
+  alpha = 60))
+ef
+
+
+ordiplot(nmdsE,type="n") #Ordination plot function especially for congested plots
+orditorp(nmdsE,display="species",col="red",air=0.01) #The function adds text or points to ordination plots
+orditorp(nmdsE,display="sites",cex=0.25,air=0.01)
+ef
+
+
+
+```
+

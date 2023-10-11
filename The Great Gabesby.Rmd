@@ -1,0 +1,500 @@
+---
+title: "The Great Gabesby"
+author: "GNyen"
+date: "2023-10-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+tostuff<- trts %>% dplyr::filter(row == "TO") 
+zed <- tostuff$biomass_sum
+mean(zed)
+
+
+lstuff <- trts %>% dplyr::filter(row == "L")
+ted <- lstuff$biomass_sum
+mean(ted)
+#leave rows have higher biomass sums than TO rows.
+
+
+seedstuff<- trts %>% dplyr::filter(seed_trt == "S") 
+fred <- seedstuff$biomass_sum
+mean(fred)
+
+stuff<- trts %>% dplyr::filter(seed_trt == "U") 
+shread <- stuff$biomass_sum
+mean(shread)
+
+```
+
+```{r "Chunky Monkey NO.1", cache=TRUE}
+library(vegan)
+library(tidyverse)
+library(broom)
+
+
+
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+
+
+data <- data %>% mutate(species_code = coalesce(species_code,species))
+
+head(data)
+data <-data %>% filter(!is.na(species_code))
+
+data <- data %>% filter(!plot_id=="9-6-K")
+
+
+varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+ distinct()
+
+
+varibs<- varibs  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
+
+
+
+dat1 <- data%>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+
+#add up spp weights to pool for each plot
+dat1_long <- dat1 %>% 
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+
+
+input_dat <- dat1 %>% column_to_rownames("plot_id")
+
+
+
+  #plot side/axis 1 and 2 of 3D figure
+  
+  ### This is to plot some shapes within the point cloud ###
+
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "S")
+
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "U")
+
+trts <- bind_rows(trtseed,trtunseed)
+
+trts <- trts  %>% 
+  filter(!is.na(row))
+
+trts <- rename(trts, seed_trt = add_column)
+
+trts <- trts %>% left_join(dat1_summary, by = "plot_id")
+trts <- trts %>% column_to_rownames("plot_id")
+
+
+library(vegan3d)
+
+
+varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
+
+
+```
+
+``` {r "Play that Chunky music white boy", cache=TRUE}
+library(vegan)
+library(parallel)
+detectCores()
+
+clus <- parallel::makeCluster(15) # create 
+
+clusterEvalQ(clus, library(vegan)) # allow vegan
+
+nmds_seed<- runif(1, min= 0, max = 1000)
+print(nmds_seed)
+set.seed(seed = nmds_seed)
+
+input_dat_wi <- input_dat
+
+nmdsWI <- metaMDS(comm = input_dat_wi,
+             autotransform = TRUE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             parallel = clus,
+             weakties = TRUE,
+             model = "global",
+             maxit = 100000,
+             try = 100000,
+             trymax = 100000)
+
+nmdsWI$stress
+
+plot(nmdsWI)
+```
+```{r "BLOW chunks", cache=TRUE}
+#most basic plot
+library(vegan3d)
+
+vegan3d::ordiplot3d(nmdsWI, display= "sites",
+             col = "black", ax.col= "red", pch = 19)
+#plot with colors as a factor of treatment
+vegan3d::ordiplot3d(nmdsWI, display= "sites",
+           col = factor(trts$stand), ax.col= "red", pch = 19)
+
+vegan3d::ordiplot3d(nmdsWI, display= "sites",
+           col = factor(trts$seed_trt), ax.col= "red", pch = 19)
+
+# Plot in 2d basic
+         vegan::ordiplot(nmdsWI, choices= c(1,3), type = "n", display = "sites")       #Stand Number
+            points(nmdsWI, choices = c(1,3), display= "sites", pch=19)
+#change the color of the dots in accordance to treatment
+   vegan::ordiplot(nmdsWI, choices= c(1,3), type = "n", display = "sites")       #Stand Number
+            points(nmdsWI, choices = c(1,3), display= "sites", pch=19, col = factor(trts$seed_trt))
+
+#plot in 2d with stand hulls
+plot(nmdsWI, choices = c(1,3), display = "sites", type = "n") 
+points(nmdsWI, choices = c(1,3), display= "sites", pch=19)
+vegan::ordihull(nmdsWI, display= "sites", groups= trts$stand, draw="polygon", col= c("yellow", "cornflowerblue", "darkolivegreen2", "purple", "sienna3", "red", "violet", "darkturquoise"), label=F, choices =c(1,3))
+#plot in 2d with seeding treatments as hulls
+plot(nmdsWI, choices = c(1,3), display = "sites", type = "n") 
+points(nmdsWI, choices = c(1,3), display= "sites", pch=19)
+vegan::ordihull(nmdsWI,groups= trts$seed_trt, draw="polygon",col= c("darkolivegreen2","darkviolet"),label=F, choices =c(1,3))
+
+
+
+efWI <- envfit(nmdsWI ~ lai_2000_lin, trts, permutations = 999999, choices = 1:3, na.rm=T, iterations = 100000)
+efWI
+
+ef1WI <- envfit(nmdsWI ~ stand, trts, permutations = 999999, choices = 1:3, na.rm = T, iterations= 100000)
+ef1WI
+
+
+ef2WI <- envfit(nmdsWI ~ n_seedlings, trts, permutations = 999999, choices = 1:3, na.rm = T, iterations= 100000)
+
+ef2WI
+
+ef3WI <- envfit(nmdsWI ~ seed_trt, trts, permutations = 999999, choices = 1:3, na.rm = T, iterations= 100000)
+
+ef3WI
+
+ef4WI <- envfit(nmdsWI ~ biomass_sum, trts, permutations = 999999, choices = 1:3, na.rm = T, iterations= 100000)
+
+ef4WI
+```
+
+
+``` {r "Can't Chunk This", cache=TRUE}
+library(vegan)
+library(parallel)
+detectCores()
+
+clus <- parallel::makeCluster(15) # create 
+
+clusterEvalQ(clus, library(vegan)) # allow vegan
+
+
+
+nmdsE <- metaMDS(comm = input_dat,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             parallel = clus,
+             weakties = TRUE,
+             model = "global",
+             maxit = 5000,
+             try = 5000,
+             trymax = 5000)
+
+nmdsE$stress
+
+plot(nmdsE)
+
+adonis()
+
+
+```
+
+
+```{r "Chunk-city-bitch", cache=TRUE}
+#using the cluster (aka - clus) makes it run 15% faster.
+plot(nmdsE)
+vegan3d::ordiplot3d(nmdsE, display="species", choices = 1:3)
+
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 1:3, na.rm=T, iterations = 100000)
+ef
+
+ef1 <- envfit(nmdsE ~ stand, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 100000)
+ef1
+
+
+ef2 <- envfit(nmdsE ~ n_seedlings, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 100000)
+
+ef2
+
+ef3 <- envfit(nmdsE ~ seed_trt, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 100000)
+
+ef3
+
+ef4 <- envfit(nmdsE ~ biomass_sum, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 100000)
+
+ef4
+
+
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef2)
+
+
+pl4 <- with(trts, ordiplot3d(nmdsE, pch=16))
+#ef <- envfit(nmdsE ~ lai_2000_lin, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef1)
+with(trts, ordiellipse(pl4, trts$seed_trt, draw = "poly", col = 1:2,
+  alpha = 60))
+ef1
+ef
+ef1
+ef2
+ef3
+ef4
+
+pl4 <- with(trts, ordiplot3d(nmdsE, pch=16))
+ef <- envfit(nmdsE ~ lai_2000_lin, trts, choices = 1:3, na.rm=T)
+ordiplot3d(nmdsE, col = "red", ax.col= "black", pch = 18, envfit = ef)
+with(trts, ordiellipse(pl4, trts$row, draw = "poly", col = 1:2,
+  alpha = 60))
+ef3
+
+
+
+
+
+
+
+ordiplot(nmdsE,type="n") #Ordination plot function especially for congested plots
+orditorp(nmdsE,display="species",col="red",air=0.01) #The function adds text or points to ordination plots
+orditorp(nmdsE,display="sites",cex=0.25,air=0.01)
+ef
+
+
+
+```
+
+
+```{r "Get Chunky With It", cache=TRUE}
+library(vegan)
+
+data <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+
+
+
+data <- data %>% mutate(species_code = coalesce(species_code,species))
+
+data <- data %>% filter(!plot_id=="9-6-K")
+
+permA_input_dat <- data%>% dplyr::select(plot_id, row, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+permA_input_dat %>% dplyr::mutate(row= replace_na("L"))
+
+
+
+#These are for #input_dats per row type
+permA_input_TO <- permA_input_dat %>% filter(row== "TO") %>% dplyr::select(-c(row)) %>% column_to_rownames("plot_id") 
+permA_input_L <- permA_input_dat %>% filter(row== "L") %>% dplyr::select(-c(row)) %>% column_to_rownames("plot_id") 
+
+
+#permA_ semi_join(input_trts_row_L)
+
+
+
+
+#make some fun new df's #This is for TRTS
+input_trts_row_TO <- trts %>% filter(row == "TO") #%>% column_to_rownames("plot_id") 
+input_trts_row_L <- trts %>% filter(row == "L") #%>% column_to_rownames("plot_id")
+
+
+permA_input_TO_WI <- wisconsin(permA_input_TO)
+permA_input_TO_MAX <- decostand(permA_input_TO, "max", na.rm = FALSE)
+
+input_dat ~ biomass_sum
+
+
+#input_dat_wi
+
+adonis2(
+permA_input_TO_MAX ~ seed_trt,
+input_trts_row_TO,
+permutations = 999999,
+method = "bray",
+sqrt.dist = FALSE,
+add = FALSE,
+by = "terms",
+parallel = 1,
+na.action = na.fail,
+strata = NULL,
+)
+
+head(trts)
+
+
+
+nmdsTO <- metaMDS(comm = permA_input_TO_WI,
+             autotransform = FALSE,
+             distance = "bray",
+             engine = "monoMDS",
+             k = 3,
+             parallel = 1,
+             weakties = TRUE,
+             model = "global",
+             maxit = 1000,
+             try = 1000,
+             trymax = 1000)
+
+nmdsTO$stress
+
+plot(nmdsTO)
+
+ef_to_wi <- envfit(nmdsTO ~ seed_trt, input_trts_row_TO, permutations = 999999, choices = 1:3, na.rm = T, iterations= 100000)
+
+ef_to_wi
+
+ef_to_wi_stand <- envfit(nmdsTO ~ seed_trt, input_trts_row_TO, permutations = 999999, choices = 1:3, na.rm = T, iterations= 100000)
+ef_to_wi_stand
+
+
+
+data("varespec")
+data("varechem")
+dat_cca <- cca(input_dat ~ seed_trt + lai_2000_lin, data = trts)
+plot(dat_cca)
+print(dat_cca)
+summary(dat_cca)
+
+
+
+dat_rda<- rda(input_dat ~ seed_trt + biomass_sum, trts)
+plot(dat_rda)
+print(dat_rda)
+
+```
+
+
+
+
+
+
+```{r "HE's A CHUNKER", cache=TRUE}
+#most basic plot
+library(vegan3d)
+
+vegan3d::ordiplot3d(nmdsE, display= "sites",
+             col = "black", ax.col= "red", pch = 19)
+#plot with colors as a factor of treatment
+vegan3d::ordiplot3d(nmdsE, display= "sites",
+           col = factor(trts$stand), ax.col= "red", pch = 19)
+
+vegan3d::ordiplot3d(nmdsE, display= "sites",
+           col = factor(trts$seed_trt), ax.col= "red", pch = 19)
+
+# Plot in 2d basic
+         vegan::ordiplot(nmdsE, choices= c(1,3), type = "n", display = "sites")       #Stand Number
+            points(nmdsE, choices = c(1,3), display= "sites", pch=19)
+       
+#change the color of the dots in accordance to treatment
+   vegan::ordiplot(nmdsE, choices= c(1,3), type = "n", display = "sites")       #Stand Number
+            points(nmdsE, choices = c(1,3), display= "sites", pch=19, col = factor(trts$seed_trt))
+
+#plot in 2d with stand hulls
+plot(nmdsE, choices = c(1,3), display = "sites", type = "n") 
+points(nmdsE, choices = c(1,3), display= "sites", pch=19)
+vegan::ordihull(nmdsE, display= "sites", groups= trts$stand, draw="polygon", col= c("yellow", "cornflowerblue", "darkolivegreen2", "purple", "sienna3", "red", "violet", "darkturquoise"), label=F, choices =c(1,3))
+#plot in 2d with seeding treatments as hulls
+plot(nmdsE, choices = c(1,3), display = "sites", type = "n") 
+points(nmdsE, choices = c(1,3), display= "sites", pch=19)
+vegan::ordihull(nmdsE,groups= trts$seed_trt, draw="polygon",col= c("darkolivegreen2","darkviolet"),label=F, choices =c(1,3))
+#plot one more look at seeding treatments
+plot(nmdsE, choices = c(1,2), display = "sites", type = "n") 
+points(nmdsE, choices = c(1,2), display= "sites", pch=19)
+vegan::ordihull(nmdsE,groups= trts$seed_trt, draw="polygon",col= c("darkolivegreen2","darkviolet"),label=F, choices =c(1,2))
+
+plot(nmdsE, choices = c(2,3), display = "sites", type = "n") 
+points(nmdsE, choices = c(2,3), display= "sites", pch=19)
+vegan::ordihull(nmdsE,groups= trts$seed_trt, draw="polygon",col= c("darkolivegreen2","darkviolet"),label=F, choices =c(2,3))
+
+
+########################################## BOX PLOTS ###################################
+
+
+## make a working dataframe with the seeded spp. ##
+boxdat <- filter(data, species_code == "TEVI")
+boxdat1 <- filter(data, species_code == "SONU")
+boxdat2 <- filter(data, species_code == "SOSE")
+boxdat3 <- filter(data, species_code == "MUEX")
+boxdat4 <- filter(data, species_code == "AN01")
+boxdat5 <- filter(data, species_code == "ARBE")
+b1 <- bind_rows(boxdat, boxdat1)
+b2 <- bind_rows(boxdat2, boxdat3)
+b3 <- bind_rows(boxdat4, boxdat5)
+b11 <- bind_rows(b1, b2)
+boxdat <- bind_rows(b11, b3)
+## make a working dataframe with the seeded spp. ##
+
+seed1 <- boxdat %>% filter(stand == 6)
+seed2 <- boxdat %>% filter(stand == 7)
+seed3 <- boxdat %>% filter(stand == 8)
+seed4 <- boxdat %>% filter(stand == 9)
+trts5 <- bind_rows(seed1,seed2,seed3,seed4)
+trts6 <- trts5 %>% add_column(add_column = "S")
+
+unse1 <- boxdat %>% filter(stand == 3)
+unse2 <- boxdat %>% filter(stand == 4)
+unse3 <- boxdat %>% filter(stand == 5)
+unse4 <- boxdat %>% filter(stand == 10)
+trtu5 <- bind_rows(unse1,unse2,unse3,unse4)
+trtu5 <- trtu5 %>% add_column(add_column = "U")
+
+boxdat <- bind_rows(trts6, trtu5)
+boxdat <- rename(boxdat, seed_trt = add_column)
+boxdat <- boxdat  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0))
+
+
+write.csv(boxdat, "C:/Users/gn238/Downloads/boxdat.csv", row.names=TRUE)
+
+ggplot(trts,aes(biomass_sum, n_seedlings))+
+  geom_point() +
+     theme_minimal() +
+      labs(x= "Dry Biomass (g)", y= "Number of Seedlings") + theme(axis.text=element_text(size=20), axis.title = element_text(size=22)) 
+
+labels_trt <- c("Seeded", "Unseeded")
+names(labels_trt) <- c("S", "U")
+
+labels_trt <- c("Seeded", "Unseeded")
+names(labels_trt) <- c("S", "U")
+
+
+FIREBALL <- ggplot(boxdat, aes(
+  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)),
+  y = dried_weight_g,
+  fill = row
+)) + 
+geom_boxplot() + theme_minimal() + labs(x = "Stand", y = "Dry Biomass") + theme(panel.spacing.x =
+                                                                                    unit(0.75, "lines")) +theme(axis.text=element_text(size=20),
+                                                                                                                axis.title = element_text(size=22))+
+    labs(fill="Row Type") +
+  facet_grid( ~ seed_trt, scales = "free", labeller = labeller(seed_trt = labels_trt)) +
+  scale_fill_manual(values = c("chartreuse2", "gray"))  + scale_y_continuous(limits = c(0, 60), breaks = seq(0, 60, 20)) + theme(axis.text =
+                                                                                                                                   element_text(size = 20),
+                                                                                                                                 axis.title = element_text(size = 22)) 
+```
+

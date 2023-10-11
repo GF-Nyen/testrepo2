@@ -174,7 +174,9 @@ mod5NP <- glmmadmb(formula= n_seedlings ~ biomass_sum.x + ppfd_total_under_per_d
   
   summary(mod6NP)
   
-  
+summary(mod6np)
+
+
 
  
     mod7NP <- glmmadmb(formula= n_seedlings ~  biomass_sum.x + seed_trt + row,
@@ -571,12 +573,19 @@ qqplot()
 
 ```{r "ggplots for PPPTTT presentation"}
 
-standseedlings <- ggplot(trts, aes(x = stand, y= n_seedlings, fill= n_seedlings)) + 
-  geom_boxplot(fill = "chartreuse2", outlier.shape =23, outlier.color = "black")+ 
+standseedlings <- ggplot(trts, aes(x = factor(stand), y= n_seedlings, fill= n_seedlings)) + 
+  geom_boxplot(fill = "chartreuse2", outlier.shape =21, outlier.color = "black", outlier.size = 3)+ 
   theme_minimal()+
-  labs(x= "Stand", y= "Number of Seedlings")
-ggsave(filename= "standsseedlings.png", plot = standseedlings ,path= "C:/Users/gn238/OneDrive - Mississippi State University/" )
+  labs(x= "Stand", y= "Number of Seedlings") +
+  theme(legend.title = element_text(colour="black", size=22, face="bold")+
+  theme(legend.text = element_text(colour="black", size = 20, face = "bold")))  +
+  theme(axis.text =element_text(size = 20),axis.title = element_text(size = 22))        
 
+standseedlings
+
+
+ggsave(filename= "standsseedlings.png", plot = standseedlings ,path= "C:/Users/gn238/OneDrive - Mississippi State University/" )
+standseedlings
 
 
 p <- standseedlings
