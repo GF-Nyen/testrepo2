@@ -16,7 +16,7 @@ library(broom)
 library(vegan)
 library(parallel)
 library(janitor)
-detectCores() # counts how many cores the computer has
+detectCores() # counts how many cores the computer has # this is just good to know for the makeCluster() argument
 
 metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv") #this is my meta data from the understory community change over time study
 regendata <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/regenplots.csv") #here is the meta data on the understory regen. This includes height of trees, metadata does not
@@ -27,24 +27,75 @@ clusterEvalQ(clus, library(vegan)) # allow vegan to use the cluster when running
 
 ```
 
-```{r "set up regendata df so its useful"}
+
+```{r "set up regendata averaged by sampling plot"}
 
 regendata <- regendata %>% 
     dplyr::select(-starts_with('X')) %>% #this removes the data columns that didn't contain any information
     clean_names() %>% #this uses janitor to make the names lowercase and better
-       separate(col = plot_id,  into = c("stand", "transect", "position")) #this gives a new column for each by seperating stand, transect, and position
+       separate(col = plot_id,  into = c("stand", "transect", "position")) #this gives a new column for each by separating stand, transect, and position
+regendata$standbyrow <- paste(regendata$stand, "_", regendata$row)
+```
 
 
+```{r "add a seed trt column"}
 
+seed1 <- regendata %>% filter(stand == 6)
+seed2 <- regendata %>% filter(stand == 7)
+seed3 <- regendata %>% filter(stand == 8)
+seed4 <- regendata %>% filter(stand == 9)
+trts5 <- bind_rows(seed1,seed2,seed3,seed4)
+trts6 <- trts5 %>% add_column(add_column = "S")
+
+unse1 <- regendata %>% filter(stand == 3)
+unse2 <- regendata %>% filter(stand == 4)
+unse3 <- regendata %>% filter(stand == 5)
+unse4 <- regendata %>% filter(stand == 10)
+trtu5 <- bind_rows(unse1,unse2,unse3,unse4)
+trtu5 <- trtu5 %>% add_column(add_column = "U")
+
+regendata <- bind_rows(trts6, trtu5)
+regendata <- rename(regendata, seed_trt = add_column)
 
 ```
 
+
+```{r} 
+regen_summary <- regendata %>% 
+  group_by(seed_trt, stand, transect, position, row, quadrat) %>% 
+  summarise(n_seedlings  = length(position[regen_count>=1]),
+            mean_height = mean(height_cm)) #this creates a new df and makes it averaged by heights and counts per quadrat
+
+ regen_summary$standbyrow <- paste(regen_summary$stand, "_", regen_summary$row)
+
+ 
+```
+
+
+
+```{r "lets get regendata averaged per row"}
+
+
+STAND_ROW_SUMMARY   <- regen_summary %>% group_by(stand, row) %>% 
+            summarise(n_seedlings_mean = mean(n_seedlings),
+            n_seedlings_sd = sd(n_seedlings),
+            height_mean = mean(mean_height, na.rm = TRUE),
+            height_sd = sd(mean_height, na.rm = TRUE))
+
+STAND_ROW_SUMMARY
+
+```
+
+
 ```{r}
+ggplot(data=regen_summary, aes(x=stand, y=n_seedlings)) +
+  geom_boxplot() +theme_minimal()
 
+ggplot(data=regen_summary, aes(x=standbyrow, y=n_seedlings)) +
+  geom_boxplot() +theme_minimal()
+```
 
-
-
-
+```{r}
 
 ```
 
