@@ -1,0 +1,70 @@
+---
+title: "Spring'24 Code"
+author: "GNyen"
+date: "2024-02-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r "Chunk 1 Import data and library packages, set up cluster"}
+library(tidyverse)
+library(glmmADMB)
+library(broom)
+library(vegan)
+library(parallel)
+library(janitor)
+detectCores() # counts how many cores the computer has
+
+metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv") #this is my meta data from the understory community change over time study
+regendata <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/regenplots.csv") #here is the meta data on the understory regen. This includes height of trees, metadata does not
+
+clus <- parallel::makeCluster(15) # creates a cluster using 15 of 16 cores
+
+clusterEvalQ(clus, library(vegan)) # allow vegan to use the cluster when running any function
+
+```
+
+```{r "set up regendata df so its useful"}
+
+regendata <- regendata %>% 
+    dplyr::select(-starts_with('X')) %>% #this removes the data columns that didn't contain any information
+    clean_names() %>% #this uses janitor to make the names lowercase and better
+       separate(col = plot_id,  into = c("stand", "transect", "position")) #this gives a new column for each by seperating stand, transect, and position
+
+
+
+
+```
+
+```{r}
+
+
+
+
+
+
+```
+
+```{r "This makes a AIC table and orders them based on the lowest AIC"}
+
+
+finalmodlist <- list(example1,example2, example3, example_model12) # within the list() place the model call.names/ matrix names 
+aictable<- data.frame("Model" = rep(" ",times=length(finalmodlist)),"AIC" = rep(NA,times=length(finalmodlist)))
+for(i in 1:length(finalmodlist)){
+  aictable$Model[i] <- as.character(finalmodlist[[i]]$formula)[3]
+  aictable$AIC[[i]]<- summary(finalmodlist[[i]])$aic[1]
+   aictable$nll[i] <- finalmodlist[[i]]$loglik
+}
+orderedAICtablet <- aictable[order(aictable$AIC),]
+orderedAICtablet$deltaAIC <- orderedAICtablet$AIC - orderedAICtablet$AIC[1]
+orderedAICtablet$rll <- exp(-0.5*orderedAICtablet$deltaAIC)
+orderedAICtablet$weight <- orderedAICtablet$rll/sum(orderedAICtablet$rll)
+orderedAICtablet$weight <- round(orderedAICtablet$weight,3)
+# write.csv(orderedAICtable_finalset, file = "AICtable_finalset.csv") #this writes the AIC Table into a CSV
+
+
+```
+
