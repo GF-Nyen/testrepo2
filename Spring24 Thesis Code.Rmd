@@ -76,7 +76,7 @@ regen_summary <- regendata %>%
 ```{r "lets get regendata averaged per row"}
 
 
-STAND_ROW_SUMMARY   <- regen_summary %>% group_by(stand, row) %>% 
+STAND_ROW_SUMMARY   <- regen_summary %>% group_by(stand, row, seed_trt) %>% 
             summarise(n_seedlings_mean = mean(n_seedlings),
             n_seedlings_sd = sd(n_seedlings),
             height_mean = mean(mean_height, na.rm = TRUE),
@@ -93,11 +93,41 @@ ggplot(data=regen_summary, aes(x=stand, y=n_seedlings)) +
 
 ggplot(data=regen_summary, aes(x=standbyrow, y=n_seedlings)) +
   geom_boxplot() +theme_minimal()
+
+ggplot(data=STAND_ROW_SUMMARY, aes(x=seed_trt, y=n_seedlings_mean)) +
+  geom_boxplot() + theme_minimal()
+
+m1 <- aov(n_seedlings_mean ~ seed_trt, data = STAND_ROW_SUMMARY)
+summary(m1)
+
+m2 <- aov(n_seedlings ~ standbyrow, data= regen_summary)
+glance(m2)
+summary(m2)
+
+m3 <- aov(n_seedlings_mean ~ row, data = STAND_ROW_SUMMARY)
+summary(m3)
+
+testing<- STAND_ROW_SUMMARY
+testing[is.na(testing)] <- 0
+
+
+m4 <- aov(height_mean ~ row, data = testing )
+summary(m4)
+
+head(STAND_ROW_SUMMARY)
+m5 <- aov(height_mean ~ row, data = STAND_ROW_SUMMARY)
+summary(m5)
+
+ggplot(data=testing, aes( x=row, y= height_mean)) + geom_boxplot() +
+  theme_minimal()
 ```
 
 ```{r}
 
 ```
+
+
+
 
 ```{r "This makes a AIC table and orders them based on the lowest AIC"}
 
