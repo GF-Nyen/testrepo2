@@ -84,7 +84,52 @@ STAND_ROW_SUMMARY   <- regen_summary %>% group_by(stand, row, seed_trt) %>%
 
 STAND_ROW_SUMMARY
 
+
+stand_transect_summary  <-regen_summary %>% group_by(stand, transect, row, seed_trt) %>% 
+            summarise(n_seedlings_mean = mean(n_seedlings),
+            n_seedlings_sd = sd(n_seedlings),
+            height_mean = mean(mean_height, na.rm = TRUE),
+            height_sd = sd(mean_height, na.rm = TRUE))
+
+ stand_transect_summary$standbyrow <- paste(stand_transect_summary$stand, "_", stand_transect_summary$row)
+
 ```
+
+
+```{r}
+#This is for stand/transect grouping. So replicates are transects within the stand
+
+
+
+m1 <- aov(n_seedlings_mean ~ seed_trt, data = stand_transect_summary)
+summary(m1)
+#We have significant number of seedlings predicted by seed treatment
+checkheight <- lm(n_seedlings_mean ~ seed_trt, data=stand_transect_summary)
+glance(checkheight)
+
+m2 <- aov(n_seedlings_mean ~ row, data= stand_transect_summary)
+glance(m2)
+summary(m2)
+
+m3 <- aov(height_mean ~ seed_trt, data = stand_transect_summary)
+summary(m3)
+
+m4 <- aov(height_mean ~ row, data = stand_transect_summary )
+summary(m4)
+
+m4 <- aov(n_seedlings_mean ~ stand, data = stand_transect_summary )
+summary(m4)
+
+
+ggplot(stand_transect_summary, aes(
+  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)),
+  y = n_seedlings_mean,
+  fill = row
+)) +   geom_boxplot() + theme_minimal()
+
+
+```
+
 
 
 ```{r}
@@ -94,11 +139,23 @@ ggplot(data=regen_summary, aes(x=stand, y=n_seedlings)) +
 ggplot(data=regen_summary, aes(x=standbyrow, y=n_seedlings)) +
   geom_boxplot() +theme_minimal()
 
-ggplot(data=STAND_ROW_SUMMARY, aes(x=seed_trt, y=n_seedlings_mean)) +
+ggplot(STAND_ROW_SUMMARY, aes(
+  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)),
+  y = n_seedlings_mean,
+  fill = row
+)) +   geom_boxplot() + theme_minimal()
+
+
+ggplot(data=STAND_ROW_SUMMARY, aes(x=seed_trt, y=height_mean), na.rm=T) +
   geom_boxplot() + theme_minimal()
+
+
 
 m1 <- aov(n_seedlings_mean ~ seed_trt, data = STAND_ROW_SUMMARY)
 summary(m1)
+#We have significant number of seedlings predicted by seed treatment
+checkheight <- lm(n_seedlings_mean ~ seed_trt, data=STAND_ROW_SUMMARY)
+glance(checkheight)
 
 m2 <- aov(n_seedlings ~ standbyrow, data= regen_summary)
 glance(m2)
@@ -123,6 +180,107 @@ ggplot(data=testing, aes( x=row, y= height_mean)) + geom_boxplot() +
 ```
 
 ```{r}
+#lets make a glmmADMB model after what Joshua J. Puhlick sent me
+
+
+metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+
+metadata <- metadata %>% mutate(species_code = coalesce(species_code, species))
+head(metadata, 20)
+
+data <-data %>% filter(!is.na(species_code))
+
+data <- data %>% filter(!plot_id=="9-6-K")
+
+
+varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+ distinct()
+
+
+varibs<- varibs  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
+
+
+
+dat1 <- data %>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+
+
+#add up spp weights to pool for each plot
+dat1_long <- dat1 %>% 
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+
+
+input_dat <- dat1 %>% column_to_rownames("plot_id")
+
+
+
+  #plot side/axis 1 and 2 of 3D figure
+  
+  ### This is to plot some shapes within the point cloud ###
+
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "S")
+
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "U")
+
+trts <- bind_rows(trtseed,trtunseed)
+
+trts <- trts  %>% 
+  filter(!is.na(row))
+
+trts <- rename(trts, seed_trt = add_column)
+
+trts <- trts %>% left_join(dat1_summary, by = "plot_id")
+trts <- trts %>% column_to_rownames("plot_id")
+
+
+library(vegan3d)
+
+
+varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(glmmADMB)
+fit_binary <- glmmadmb(Presence ~ sum_all_species_dried_weight_g,
+ random = ~1 | Treatment/stand, family='binomial', link='cloglog',
+ data=metadata)
+summary(fit_binary)
+
+
+
+
 
 ```
 
