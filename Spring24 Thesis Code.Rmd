@@ -34,7 +34,7 @@ regendata <- regendata %>%
     dplyr::select(-starts_with('X')) %>% #this removes the data columns that didn't contain any information
     clean_names() %>% #this uses janitor to make the names lowercase and better
        separate(col = plot_id,  into = c("stand", "transect", "position")) #this gives a new column for each by separating stand, transect, and position
-regendata$standbyrow <- paste(regendata$stand, "_", regendata$row)
+regendata$standbyrow <- paste(regendata$stand, "_", regendata$row) #this created a new row in regendata for "stand_by_row" a mixture of how does row type and stand interact 
 ```
 
 
@@ -45,17 +45,17 @@ seed2 <- regendata %>% filter(stand == 7)
 seed3 <- regendata %>% filter(stand == 8)
 seed4 <- regendata %>% filter(stand == 9)
 trts5 <- bind_rows(seed1,seed2,seed3,seed4)
-trts6 <- trts5 %>% add_column(add_column = "S")
+trts6 <- trts5 %>% add_column(add_column = "S") #all of this created new column with "S" for seeded
 
 unse1 <- regendata %>% filter(stand == 3)
 unse2 <- regendata %>% filter(stand == 4)
 unse3 <- regendata %>% filter(stand == 5)
 unse4 <- regendata %>% filter(stand == 10)
 trtu5 <- bind_rows(unse1,unse2,unse3,unse4)
-trtu5 <- trtu5 %>% add_column(add_column = "U")
+trtu5 <- trtu5 %>% add_column(add_column = "U") #all of this created new column with "U" for unseeded
 
-regendata <- bind_rows(trts6, trtu5)
-regendata <- rename(regendata, seed_trt = add_column)
+regendata <- bind_rows(trts6, trtu5) #this mashed the two tables together (U) and (S)
+regendata <- rename(regendata, seed_trt = add_column) #this changed the name of the new column to "seed_trt" which now contains a S or a U.
 
 ```
 
@@ -66,8 +66,8 @@ regen_summary <- regendata %>%
   summarise(n_seedlings  = length(position[regen_count>=1]),
             mean_height = mean(height_cm)) #this creates a new df and makes it averaged by heights and counts per quadrat
 
- regen_summary$standbyrow <- paste(regen_summary$stand, "_", regen_summary$row)
-
+regen_summary$standbyrow <- paste(regen_summary$stand, "_", regen_summary$row)
+#this created a new row in regen_summary for "stand_by_row" a mixture of how does row type and stand interact 
  
 ```
 
@@ -80,8 +80,8 @@ STAND_ROW_SUMMARY   <- regen_summary %>% group_by(stand, row, seed_trt) %>%
             summarise(n_seedlings_mean = mean(n_seedlings),
             n_seedlings_sd = sd(n_seedlings),
             height_mean = mean(mean_height, na.rm = TRUE),
-            height_sd = sd(mean_height, na.rm = TRUE))
-
+            height_sd = sd(mean_height, na.rm = TRUE)) 
+#this is a summary table from regen_summary where each stand has a row type and a seed trt assigned to it. Average heights, and numbers of seedlings alongside SD's are listed in the table. Useful for testing trt effects based on row type
 STAND_ROW_SUMMARY
 
 
@@ -90,42 +90,44 @@ stand_transect_summary  <-regen_summary %>% group_by(stand, transect, row, seed_
             n_seedlings_sd = sd(n_seedlings),
             height_mean = mean(mean_height, na.rm = TRUE),
             height_sd = sd(mean_height, na.rm = TRUE))
-
+stand_transect_summary
  stand_transect_summary$standbyrow <- paste(stand_transect_summary$stand, "_", stand_transect_summary$row)
-
+#this is a summary table from regen_summary where each stand is broken up by transect. Transects had an assigned row type and a seeding treatment. All values had Average heights, and numbers of seedlings alongside SD's are listed in the table.
+ 
+ 
 ```
 
 
 ```{r}
-#This is for stand/transect grouping. So replicates are transects within the stand
+#This chunk is for stand/transect grouping. So replicates are transects within the stand. Remember that transects are nested within treatment and row type  <- i(jk)
 
 
 
 m1 <- aov(n_seedlings_mean ~ seed_trt, data = stand_transect_summary)
-summary(m1)
+summary(m1) #seed treatment has a p value of 0.013  !!!!!!
 #We have significant number of seedlings predicted by seed treatment
 checkheight <- lm(n_seedlings_mean ~ seed_trt, data=stand_transect_summary)
-glance(checkheight)
+glance(checkheight) #same as m1 but in lm form !!!!!
 
 m2 <- aov(n_seedlings_mean ~ row, data= stand_transect_summary)
-glance(m2)
+glance(m2) ## not significant
 summary(m2)
 
 m3 <- aov(height_mean ~ seed_trt, data = stand_transect_summary)
-summary(m3)
+summary(m3) ## not significant
 
 m4 <- aov(height_mean ~ row, data = stand_transect_summary )
-summary(m4)
+summary(m4) ## not significant
 
-m4 <- aov(n_seedlings_mean ~ stand, data = stand_transect_summary )
-summary(m4)
+m5 <- aov(n_seedlings_mean ~ stand, data = stand_transect_summary )
+summary(m5) # stand is extremely significant in determining mean number of seedlings or mean number of seedlings are greatly impacted by height !!! !!! !!! 
 
 
 ggplot(stand_transect_summary, aes(
   x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)),
   y = n_seedlings_mean,
   fill = row
-)) +   geom_boxplot() + theme_minimal()
+)) +   geom_boxplot() + theme_minimal() #this is a ggplot using stand transects as the replicates with mean number of seedlings filled into the boxplot
 
 
 ```
@@ -133,29 +135,14 @@ ggplot(stand_transect_summary, aes(
 
 
 ```{r}
-ggplot(data=regen_summary, aes(x=stand, y=n_seedlings)) +
-  geom_boxplot() +theme_minimal()
-
-ggplot(data=regen_summary, aes(x=standbyrow, y=n_seedlings)) +
-  geom_boxplot() +theme_minimal()
-
-ggplot(STAND_ROW_SUMMARY, aes(
-  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)),
-  y = n_seedlings_mean,
-  fill = row
-)) +   geom_boxplot() + theme_minimal()
-
-
-ggplot(data=STAND_ROW_SUMMARY, aes(x=seed_trt, y=height_mean), na.rm=T) +
-  geom_boxplot() + theme_minimal()
-
+#This chunk is for stand/row groupings. So replicates are row types within the stand. Remember that stand is nested within treatment <- i(j)
 
 
 m1 <- aov(n_seedlings_mean ~ seed_trt, data = STAND_ROW_SUMMARY)
-summary(m1)
+summary(m1) #!!! !!! .0452 p value.
 #We have significant number of seedlings predicted by seed treatment
 checkheight <- lm(n_seedlings_mean ~ seed_trt, data=STAND_ROW_SUMMARY)
-glance(checkheight)
+glance(checkheight) #same as m1 but as a linear model
 
 m2 <- aov(n_seedlings ~ standbyrow, data= regen_summary)
 glance(m2)
@@ -177,6 +164,22 @@ summary(m5)
 
 ggplot(data=testing, aes( x=row, y= height_mean)) + geom_boxplot() +
   theme_minimal()
+
+ggplot(data=regen_summary, aes(x=stand, y=n_seedlings)) +
+  geom_boxplot() +theme_minimal()
+
+ggplot(data=regen_summary, aes(x=standbyrow, y=n_seedlings)) +
+  geom_boxplot() +theme_minimal()
+
+ggplot(STAND_ROW_SUMMARY, aes(
+  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)),
+  y = n_seedlings_mean,
+  fill = row
+)) +   geom_boxplot() + theme_minimal()
+
+
+ggplot(data=STAND_ROW_SUMMARY, aes(x=seed_trt, y=height_mean), na.rm=T) +
+  geom_boxplot() + theme_minimal()
 ```
 
 ```{r}
@@ -184,25 +187,29 @@ ggplot(data=testing, aes( x=row, y= height_mean)) + geom_boxplot() +
 
 
 metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+#import the metadata, make all empty entries into NA's
 
 metadata <- metadata %>% mutate(species_code = coalesce(species_code, species))
 head(metadata, 20)
+#replace all blank species with the unknown official names listed in the species_code column
 
-data <-data %>% filter(!is.na(species_code))
+data <-metadata %>% filter(!is.na(species_code))
+#get rid of the entries without a species code after the coalesce.
 
 data <- data %>% filter(!plot_id=="9-6-K")
-
+#takes out a plot that didnt have data to it
 
 varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
  distinct()
-
+#create a variable data frame
 
 varibs<- varibs  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
-
+#changes the NA values to be the resting values of zero or in the row it changes to a Leave row
 
 
 dat1 <- data %>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
   pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+#this transforms the data frame into a wide format such that it can be used in NMDS
 
 
 #add up spp weights to pool for each plot
@@ -212,16 +219,18 @@ dat1_long <- dat1 %>%
 dat1_summary <- dat1_long %>% 
   group_by(plot_id) %>%
   summarise(biomass_sum = sum(biomass))
+#add up spp weights to pool for each plot
 
 
-
+#this is a df with species weight on the inside and plot & species as headers
 input_dat <- dat1 %>% column_to_rownames("plot_id")
+#this is a df with species weight on the inside and plot & species as headers
 
 
 
   #plot side/axis 1 and 2 of 3D figure
   
-  ### This is to plot some shapes within the point cloud ###
+  ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
 
 seeded6 <- varibs %>% filter(stand == 6)
 seeded7 <- varibs %>% filter(stand == 7)
@@ -247,13 +256,9 @@ trts <- rename(trts, seed_trt = add_column)
 trts <- trts %>% left_join(dat1_summary, by = "plot_id")
 trts <- trts %>% column_to_rownames("plot_id")
 
+trts$standbyrow <- paste(trts$stand, "_", trts$row)
 
-library(vegan3d)
-
-
-varibs$standbyrow <- paste(varibs$stand, "_", varibs$row)
-
-
+  ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
 
 
 
@@ -296,12 +301,12 @@ for(i in 1:length(finalmodlist)){
   aictable$Model[i] <- as.character(finalmodlist[[i]]$formula)[3]
   aictable$AIC[[i]]<- summary(finalmodlist[[i]])$aic[1]
    aictable$nll[i] <- finalmodlist[[i]]$loglik
-}
-orderedAICtablet <- aictable[order(aictable$AIC),]
-orderedAICtablet$deltaAIC <- orderedAICtablet$AIC - orderedAICtablet$AIC[1]
-orderedAICtablet$rll <- exp(-0.5*orderedAICtablet$deltaAIC)
-orderedAICtablet$weight <- orderedAICtablet$rll/sum(orderedAICtablet$rll)
-orderedAICtablet$weight <- round(orderedAICtablet$weight,3)
+} #this created a shell and a loop (I don't fully comprehend loops)
+orderedAICtablet <- aictable[order(aictable$AIC),] #this orders the aic table by AIC
+orderedAICtablet$deltaAIC <- orderedAICtablet$AIC - orderedAICtablet$AIC[1] #this adds a delta AIC
+orderedAICtablet$rll <- exp(-0.5*orderedAICtablet$deltaAIC) # this adds a rll value
+orderedAICtablet$weight <- orderedAICtablet$rll/sum(orderedAICtablet$rll) #this adds weight
+orderedAICtablet$weight <- round(orderedAICtablet$weight,3)  #this changes the weights to be rounded to 3 sig figs.
 # write.csv(orderedAICtable_finalset, file = "AICtable_finalset.csv") #this writes the AIC Table into a CSV
 
 
