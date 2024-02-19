@@ -284,7 +284,7 @@ library(glmmADMB)
 #this is a model that josh sent me
 
 fit_binary <- glmmadmb(binary ~ biomass_sum,
- random = ~1 | seed_trt/stand, family='binomial', link='cloglog',
+ random = ~1 | stand/row, family='binomial', link='cloglog',
  data=trtsNP)
 summary(fit_binary) ### fit_binary has a significant factor of biomass_sum
 print(fit_binary)
@@ -297,13 +297,22 @@ fit_binary2 <- glmmadmb(binary ~ seed_trt,
 
 summary(fit_binary)
 
-
-fit_hpoiss <- glmmadmb(n_seedlings ~ biomass_sum + ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+# this is another model from Josh
+fit_hpoiss <- glmmadmb(n_seedlings ~ biomass_sum+ppfd_total_under_per_day_m_jor_mol_m2day+ seed_trt,
   random = ~1 | stand/row,
   data = subset(trtsNP, n_seedlings > 0),
   family = "truncpoiss")
  
 summary(fit_hpoiss)
+
+
+#This actually has a lower AIC##
+fit_hpoiss2 <- glmmadmb(n_seedlings ~ biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+  random = ~1 | stand/row,
+  data = subset(trtsNP, n_seedlings > 0),
+  family = "truncpoiss")
+ 
+summary(fit_hpoiss2)
 
 
 
@@ -317,7 +326,7 @@ summary(fit_hpoiss)
 ```{r "This makes a AIC table and orders them based on the lowest AIC"}
 
 
-finalmodlist <- list(example1,example2, example3, example_model12) # within the list() place the model call.names/ matrix names 
+finalmodlist <- list(fit_binary,fit_binary2, fit_hpoiss, fit_hpoiss2) # within the list() place the model call.names/ matrix names 
 aictable<- data.frame("Model" = rep(" ",times=length(finalmodlist)),"AIC" = rep(NA,times=length(finalmodlist)))
 for(i in 1:length(finalmodlist)){
   aictable$Model[i] <- as.character(finalmodlist[[i]]$formula)[3]
@@ -333,4 +342,16 @@ orderedAICtablet$weight <- round(orderedAICtablet$weight,3)  #this changes the w
 
 
 ```
+
+
+
+```{r}
+
+#check if there is a significant weight difference between row types
+
+
+
+
+```
+
 
