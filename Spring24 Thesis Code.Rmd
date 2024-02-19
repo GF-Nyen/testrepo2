@@ -221,6 +221,15 @@ dat1_summary <- dat1_long %>%
   summarise(biomass_sum = sum(biomass))
 #add up spp weights to pool for each plot
 
+ dat1_long1 <- dat1_long %>% 
+       mutate(species = as.character(species))
+
+
+dat1_long_noPIPA <- dat1_long1 %>% filter(species != "PIPA")
+
+dat1_summary_noPIPA <- dat1_long_noPIPA %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
 
 #this is a df with species weight on the inside and plot & species as headers
 input_dat <- dat1 %>% column_to_rownames("plot_id")
@@ -252,42 +261,55 @@ trts <- trts  %>%
   filter(!is.na(row))
 
 trts <- rename(trts, seed_trt = add_column)
-
+trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id") %>% column_to_rownames("plot_id")
+# trtsNP is now the data frame to work off for models. It has biomass of all species except PIPA included
 trts <- trts %>% left_join(dat1_summary, by = "plot_id")
 trts <- trts %>% column_to_rownames("plot_id")
 
 trts$standbyrow <- paste(trts$stand, "_", trts$row)
-
+trtsNP$standbyrow <- paste(trtsNP$stand, "_", trtsNP$row)
   ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
 
+trtsNP$binary<- with(trtsNP, ifelse(n_seedlings > 0, '1', '0')) %>% as.numeric()
+trtsNP$stand <- as.factor(trtsNP$stand)
+trtsNP$seed_trt <- as.factor(trtsNP$seed_trt)
+trtsNP$row <- as.factor(trtsNP$row)
 
+```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```{r}
 library(glmmADMB)
-fit_binary <- glmmadmb(Presence ~ sum_all_species_dried_weight_g,
- random = ~1 | Treatment/stand, family='binomial', link='cloglog',
- data=metadata)
+
+
+#this is a model that josh sent me
+
+fit_binary <- glmmadmb(binary ~ biomass_sum,
+ random = ~1 | seed_trt/stand, family='binomial', link='cloglog',
+ data=trtsNP)
+summary(fit_binary) ### fit_binary has a significant factor of biomass_sum
+print(fit_binary)
+
+#this is a model that josh sent me
+
+fit_binary2 <- glmmadmb(binary ~ seed_trt,
+  random = ~1 | stand/row, family='binomial', link='cloglog',
+  data=trtsNP)
+
 summary(fit_binary)
 
+
+fit_hpoiss <- glmmadmb(n_seedlings ~ biomass_sum + ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+  random = ~1 | stand/row,
+  data = subset(trtsNP, n_seedlings > 0),
+  family = "truncpoiss")
+ 
+summary(fit_hpoiss)
 
 
 
 
 ```
+
 
 
 
