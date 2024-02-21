@@ -95,6 +95,33 @@ stand_transect_summary
 #this is a summary table from regen_summary where each stand is broken up by transect. Transects had an assigned row type and a seeding treatment. All values had Average heights, and numbers of seedlings alongside SD's are listed in the table.
  
  
+ 
+ 
+ #lets make a biomass difference table to see if there is a sig diff in biomass between stands/rows
+ 
+ BIOMASS_TRANSECT_SUMMARY   <- trts %>% group_by(stand, row, transect, seed_trt) %>% 
+            summarise(biomass_sum_row = mean(biomass_sum),
+            biomass_sum_sd = sd(biomass_sum))
+ 
+ head(BIOMASS_TRANSECT_SUMMARY,16)
+bio<- lm(biomass_sum_row ~ seed_trt, data=BIOMASS_TRANSECT_SUMMARY)
+summary(bio)
+
+Test1<- lm(biomass_sum_row ~ row, data=BIOMASS_TRANSECT_SUMMARY)
+summary(Test1)
+ #seed treatment had a pvalue of 0.057 for effecting biomass differentials between treatments
+ 
+ BIOMASS_ROW_SUMMARY   <- trts %>% group_by(stand, row, seed_trt) %>% 
+            summarise(biomass_sum_row = mean(biomass_sum),
+            biomass_sum_sd = sd(biomass_sum))
+ 
+ head(BIOMASS_ROW_SUMMARY,16)
+bio2<- lm(biomass_sum_row ~ seed_trt, data=BIOMASS_ROW_SUMMARY)
+summary(bio2)
+
+ Test2<- lm(biomass_sum_row ~ row, data=BIOMASS_ROW_SUMMARY)
+summary(Test2)
+
 ```
 
 
@@ -199,7 +226,7 @@ data <-metadata %>% filter(!is.na(species_code))
 data <- data %>% filter(!plot_id=="9-6-K")
 #takes out a plot that didnt have data to it
 
-varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand) %>%
+varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, transect) %>%
  distinct()
 #create a variable data frame
 
@@ -443,5 +470,48 @@ max(rank_flist[3,]) # biomass_sum is most highly corelated with NMDS3
 write.csv(flist, "C:/Users/gn238/Downloads/vector_associations.csv", row.names=T)
 
 ```
+```{r}
 
+ef_flat<-envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 1:2, na.rm=T, iterations = 1000)
+ef_flat
+
+summary(ef_flat)
+summary(ef2)
+
+nmdsE
+
+n = 10
+stress <- vector(length = n)
+for (i in 1:n) {
+    stress[i] <- metaMDS(input_dat, distance = "bray", k = i)$stress
+}
+names(stress) <- paste0(1:n, "Dim")
+# x11(width = 10/2.54, height = 7/2.54)
+par(mar = c(3.5,3.5,1,1), mgp = c(2, 0.6, 0), cex = 0.8, las = 2)
+barplot(stress, ylab = "stress")
+
+```
+
+
+```{r}
+#plot some CCAs or RDAs
+
+ord<- cca(input_dat ~ n_seedlings + biomass_sum + stand, data=trtsNP)
+ord
+
+plot(ord)
+anova.cca(ord)
+anova(ord, by="term", permutations = 199)
+anova(ord, by="axis", permutations = 199)
+
+ord2<- cca(input_dat ~ biomass_sum + stand, data=trtsNP)
+ord2
+
+anova.cca(ord2)
+anova(ord2, by = "term", permutations = 199)
+
+anova(ord, ord2)
+summary(anova(ord, ord2))
+
+```
 
