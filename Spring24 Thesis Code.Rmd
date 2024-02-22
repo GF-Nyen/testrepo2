@@ -19,7 +19,18 @@ library(janitor)
 detectCores() # counts how many cores the computer has # this is just good to know for the makeCluster() argument
 
 metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv") #this is my meta data from the understory community change over time study
+
+metadata$row <- as.factor(metadata$row)
+metadata$stand <- as.factor(metadata$stand)
+
+
+
 regendata <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/regenplots.csv") #here is the meta data on the understory regen. This includes height of trees, metadata does not
+
+
+
+
+
 
 clus <- parallel::makeCluster(15) # creates a cluster using 15 of 16 cores
 
@@ -35,6 +46,10 @@ regendata <- regendata %>%
     clean_names() %>% #this uses janitor to make the names lowercase and better
        separate(col = plot_id,  into = c("stand", "transect", "position")) #this gives a new column for each by separating stand, transect, and position
 regendata$standbyrow <- paste(regendata$stand, "_", regendata$row) #this created a new row in regendata for "stand_by_row" a mixture of how does row type and stand interact 
+
+
+regendata$row <- as.factor(regendata$row)
+regendata$stand <- as.factor(regendata$stand)
 ```
 
 
@@ -56,7 +71,7 @@ trtu5 <- trtu5 %>% add_column(add_column = "U") #all of this created new column 
 
 regendata <- bind_rows(trts6, trtu5) #this mashed the two tables together (U) and (S)
 regendata <- rename(regendata, seed_trt = add_column) #this changed the name of the new column to "seed_trt" which now contains a S or a U.
-
+regendata$seed_trt <- as.factor(regendata$seed_trt)
 ```
 
 
@@ -96,32 +111,6 @@ stand_transect_summary
  
  
  
- 
- #lets make a biomass difference table to see if there is a sig diff in biomass between stands/rows
- 
- BIOMASS_TRANSECT_SUMMARY   <- trts %>% group_by(stand, row, transect, seed_trt) %>% 
-            summarise(biomass_sum_row = mean(biomass_sum),
-            biomass_sum_sd = sd(biomass_sum))
- 
- head(BIOMASS_TRANSECT_SUMMARY,16)
-bio<- lm(biomass_sum_row ~ seed_trt, data=BIOMASS_TRANSECT_SUMMARY)
-summary(bio)
-
-Test1<- lm(biomass_sum_row ~ row, data=BIOMASS_TRANSECT_SUMMARY)
-summary(Test1)
- #seed treatment had a pvalue of 0.057 for effecting biomass differentials between treatments
- 
- BIOMASS_ROW_SUMMARY   <- trts %>% group_by(stand, row, seed_trt) %>% 
-            summarise(biomass_sum_row = mean(biomass_sum),
-            biomass_sum_sd = sd(biomass_sum))
- 
- head(BIOMASS_ROW_SUMMARY,16)
-bio2<- lm(biomass_sum_row ~ seed_trt, data=BIOMASS_ROW_SUMMARY)
-summary(bio2)
-
- Test2<- lm(biomass_sum_row ~ row, data=BIOMASS_ROW_SUMMARY)
-summary(Test2)
-
 ```
 
 
@@ -176,19 +165,21 @@ glance(m2)
 summary(m2)
 
 m3 <- aov(n_seedlings_mean ~ row, data = STAND_ROW_SUMMARY)
-summary(m3)
+summary(m3) #N seedlings not significantly affected by row type
 
 testing<- STAND_ROW_SUMMARY
-testing[is.na(testing)] <- 0
+testing[is.na(testing)] <- 0 #this created a new data frame where all NA values have been zeroed out
 
 
 m4 <- aov(height_mean ~ row, data = testing )
-summary(m4)
+summary(m4) #height is not significant by row
 
 head(STAND_ROW_SUMMARY)
 m5 <- aov(height_mean ~ row, data = STAND_ROW_SUMMARY)
-summary(m5)
+summary(m5) #height is not significant by row
 
+
+### make plots to visualize the models ###
 ggplot(data=testing, aes( x=row, y= height_mean)) + geom_boxplot() +
   theme_minimal()
 
@@ -207,6 +198,8 @@ ggplot(STAND_ROW_SUMMARY, aes(
 
 ggplot(data=STAND_ROW_SUMMARY, aes(x=seed_trt, y=height_mean), na.rm=T) +
   geom_boxplot() + theme_minimal()
+
+### make plots to visualize the models ###
 ```
 
 ```{r}
@@ -314,7 +307,7 @@ fit_binary <- glmmadmb(binary ~ biomass_sum,
  random = ~1 | stand/row, family='binomial', link='cloglog',
  data=trtsNP)
 summary(fit_binary) ### fit_binary has a significant factor of biomass_sum
-print(fit_binary)
+
 
 #this is a model that josh sent me
 
@@ -414,7 +407,7 @@ ef
 vegan3d::ordiplot3d(nmdsE, display="sites", choices = 1:3)
 ```
 
-```{r}
+```{r, cache=TRUE}
 
 ef <- envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 1:3, na.rm=T, iterations = 1000)
 ef
@@ -470,7 +463,7 @@ max(rank_flist[3,]) # biomass_sum is most highly corelated with NMDS3
 write.csv(flist, "C:/Users/gn238/Downloads/vector_associations.csv", row.names=T)
 
 ```
-```{r}
+```{r "why we use k=3", cache=TRUE}
 
 ef_flat<-envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 1:2, na.rm=T, iterations = 1000)
 ef_flat
@@ -496,7 +489,7 @@ barplot(stress, ylab = "stress")
 ```{r}
 #plot some CCAs or RDAs
 
-ord<- cca(input_dat ~ n_seedlings + biomass_sum + stand, data=trtsNP)
+ord<- cca(input_dat ~ n_seedlings + biomass_sum + stand, data=trtsNP) #this creates cca with the constraints on n_seedlings, biomass sum and stand.
 ord
 
 plot(ord)
@@ -513,5 +506,60 @@ anova(ord2, by = "term", permutations = 199)
 anova(ord, ord2)
 summary(anova(ord, ord2))
 
+```
+```{r}
+
+ 
+ #lets make a biomass difference table to see if there is a sig diff in biomass between stands/rows
+ 
+ BIOMASS_TRANSECT_SUMMARY   <- trts %>% group_by(stand, row, transect, seed_trt) %>% 
+            summarise(biomass_sum_row = mean(biomass_sum),
+            biomass_sum_sd = sd(biomass_sum))
+ 
+ head(BIOMASS_TRANSECT_SUMMARY,16)
+bio<- lm(biomass_sum_row ~ seed_trt, data=BIOMASS_TRANSECT_SUMMARY)
+summary(bio) #0.00133 **        !!!!!
+
+Test1<- lm(biomass_sum_row ~ row, data=BIOMASS_TRANSECT_SUMMARY)
+summary(Test1)
+
+
+ #seed treatment had a pvalue of 0.00133 for effecting biomass differentials between treatments WHEN MEASURING DOWN TO THE TRANSECT (REPLICATE IS TRANSECTS WITHIN THE STAND)
+ 
+ BIOMASS_ROW_SUMMARY   <- trts %>% group_by(stand, row, seed_trt) %>% 
+            summarise(biomass_sum_row = mean(biomass_sum),
+            biomass_sum_sd = sd(biomass_sum))
+ 
+ head(BIOMASS_ROW_SUMMARY,16)
+bio2<- lm(biomass_sum_row ~ seed_trt, data=BIOMASS_ROW_SUMMARY)
+summary(bio2) #0.057
+
+ Test2<- lm(biomass_sum_row ~ row, data=BIOMASS_ROW_SUMMARY)
+summary(Test2)
+#seed treatment had a pvalue of 0.057 for effecting biomass differentials between treatments WHEN MEASURING BASED ON ROW AVERAGES PER STAND (REPLICATE IS ROW TYPE IN EACH STAND)
+```
+```{r "Try to see if lme4 can solve the transect problem"}
+library(lme4)
+library(lmerTest)
+
+
+m1<-glmer(biomass_sum ~ seed_trt + (1| stand/row/transect),
+               data = trts)
+summary(m1) # this is biomass sum being predicted by seed treatments with the random effects of nesting transect within row within stand.
+ 
+
+
+m2<-glmer(biomass_sum ~ transect + (1| seed_trt/stand/row),
+               data = trts)
+summary(m2)
+
+
+
+
+# this is a nested random effect in lme4 <- (1|group1/group2)
+#where group2 is nested within group1.
+
+#this is a crossed random effect (not nested) <- (1|group1) + (1|group2)
+#where group1 has crossed random effects with group2
 ```
 
