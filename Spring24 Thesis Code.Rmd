@@ -284,6 +284,7 @@ trts <- rename(trts, seed_trt = add_column)
 trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id") %>% column_to_rownames("plot_id")
 # trtsNP is now the data frame to work off for models. It has biomass of all species except PIPA included
 trts <- trts %>% left_join(dat1_summary, by = "plot_id")
+glmtrts<- trts # this is trts before as I need to put into lme4
 trts <- trts %>% column_to_rownames("plot_id")
 
 trts$standbyrow <- paste(trts$stand, "_", trts$row)
@@ -317,6 +318,8 @@ fit_binary2 <- glmmadmb(binary ~ seed_trt,
 
 summary(fit_binary)
 
+
+
 # this is another model from Josh
 fit_hpoiss <- glmmadmb(n_seedlings ~ biomass_sum+ppfd_total_under_per_day_m_jor_mol_m2day+ seed_trt,
   random = ~1 | stand/row,
@@ -333,8 +336,6 @@ fit_hpoiss2 <- glmmadmb(n_seedlings ~ biomass_sum*ppfd_total_under_per_day_m_jor
   family = "truncpoiss")
  
 summary(fit_hpoiss2)
-
-
 
 
 ```
@@ -497,7 +498,7 @@ anova.cca(ord)
 anova(ord, by="term", permutations = 199)
 anova(ord, by="axis", permutations = 199)
 
-ord2<- cca(input_dat ~ biomass_sum + stand, data=trtsNP)
+ord2<- cca(input_dat ~ biomass_sum + stand + trtsNP$transect, data=trtsNP)
 ord2
 
 anova.cca(ord2)
@@ -521,7 +522,7 @@ bio<- lm(biomass_sum_row ~ seed_trt, data=BIOMASS_TRANSECT_SUMMARY)
 summary(bio) #0.00133 **        !!!!!
 
 Test1<- lm(biomass_sum_row ~ row, data=BIOMASS_TRANSECT_SUMMARY)
-summary(Test1)
+summary(Test1) #row is not significant for the biomass differentals 
 
 
  #seed treatment had a pvalue of 0.00133 for effecting biomass differentials between treatments WHEN MEASURING DOWN TO THE TRANSECT (REPLICATE IS TRANSECTS WITHIN THE STAND)
@@ -533,33 +534,185 @@ summary(Test1)
  head(BIOMASS_ROW_SUMMARY,16)
 bio2<- lm(biomass_sum_row ~ seed_trt, data=BIOMASS_ROW_SUMMARY)
 summary(bio2) #0.057
-
- Test2<- lm(biomass_sum_row ~ row, data=BIOMASS_ROW_SUMMARY)
-summary(Test2)
 #seed treatment had a pvalue of 0.057 for effecting biomass differentials between treatments WHEN MEASURING BASED ON ROW AVERAGES PER STAND (REPLICATE IS ROW TYPE IN EACH STAND)
+ Test2<- lm(biomass_sum_row ~ row, data=BIOMASS_ROW_SUMMARY)
+summary(Test2) #row is not significant for the biomass differentals 
+
 ```
+
+
+```{r}
+
+dat1_summary  #this is the biomass table for all spp
+
+dat1_summary_noPIPA # this is the biomass table for all spp !PIPA
+
+
+#this is a df with species weight on the inside and plot & species as headers
+input_dat <- dat1 %>% column_to_rownames("plot_id")
+#this is a df with species weight on the inside and plot & species as headers
+
+
+
+  #plot side/axis 1 and 2 of 3D figure
+  
+  ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
+
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "S")
+
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "U")
+
+trts <- bind_rows(trtseed,trtunseed)
+
+trts <- trts  %>% 
+  filter(!is.na(row))
+
+trts <- rename(trts, seed_trt = add_column)
+trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id") %>% column_to_rownames("plot_id")
+# trtsNP is now the data frame to work off for models. It has biomass of all species except PIPA included
+trts <- trts %>% left_join(dat1_summary, by = "plot_id")
+trts <- trts %>% column_to_rownames("plot_id")
+
+trts$standbyrow <- paste(trts$stand, "_", trts$row)
+trtsNP$standbyrow <- paste(trtsNP$stand, "_", trtsNP$row)
+  ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
+
+trtsNP$binary<- with(trtsNP, ifelse(n_seedlings > 0, '1', '0')) %>% as.numeric()
+trtsNP$stand <- as.factor(trtsNP$stand)
+trtsNP$seed_trt <- as.factor(trtsNP$seed_trt)
+trtsNP$row <- as.factor(trtsNP$row)
+
+
+
+```
+
 ```{r "Try to see if lme4 can solve the transect problem"}
 library(lme4)
 library(lmerTest)
 
 
-m1<-glmer(biomass_sum ~ seed_trt + (1| stand/row/transect),
-               data = trts)
+head(glmtrts)
+glmtrts<- glmtrts %>% separate(col = plot_id,  into = c("stand", "transect", "position")) #this gives a new column for each by separating stand, transect, and position
+glmtrts$trans_po <- paste(glmtrts$stand, "_", glmtrts$plot_id)
+glmtrts$binary<- with(glmtrts, ifelse(n_seedlings > 0, '1', '0')) %>% as.numeric()
+#glmtrts$plot_id<- as.factor(glmtrts$plot_id)
+glmtrts$stand <- as.factor(glmtrts$stand)
+glmtrts$transect <- as.factor(glmtrts$transect)
+glmtrts$seed_trt <- as.factor(glmtrts$seed_trt)
+glmtrts$row <- as.factor(glmtrts$row)
+glmtrts$position <- as.factor(glmtrts$position)
+glmtrts$trans_po <- as.factor(glmtrts$trans_po)
+
+#trans_po (subset of plot Id?)
+
+
+
+m1<-glmer(biomass_sum ~ seed_trt + (1| stand/transect),
+               data = glmtrts)
 summary(m1) # this is biomass sum being predicted by seed treatments with the random effects of nesting transect within row within stand.
- 
-
-
-m2<-glmer(biomass_sum ~ transect + (1| seed_trt/stand/row),
-               data = trts)
-summary(m2)
-
-
-
 
 # this is a nested random effect in lme4 <- (1|group1/group2)
 #where group2 is nested within group1.
 
 #this is a crossed random effect (not nested) <- (1|group1) + (1|group2)
 #where group1 has crossed random effects with group2
+```
+```{r}
+library(vegan)
+trts$stand <- as.factor(trts$stand)
+trts$seed_trt <- as.factor(trts$seed_trt)
+
+adonis2(input_dat ~ seed_trt/stand,
+        trts,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms",
+        parallel = clus
+      )
+
+
+
+adonis2(input_dat ~ seed_trt,
+        trts,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms",
+        parallel = clus
+      )
+
+
+```
+```{r}
+this <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
+this <- this %>% mutate(species_code = coalesce(species_code,species))
+this <- this %>% filter(!plot_id=="9-6-K")
+this <- this %>% filter(!is.na(species_code))
+#get rid of the entries without a species code after the coalesce.
+
+permA_input_dat <- this%>% dplyr::select(plot_id, row, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+permA_input_dat %>% dplyr::mutate(row= replace_na("L"))
+
+#These are for #input_dats per row type
+permA_input_TO <- permA_input_dat %>% filter(row== "TO") %>% dplyr::select(-c(row)) %>% column_to_rownames("plot_id") 
+permA_input_L <- permA_input_dat %>% filter(row== "L") %>% dplyr::select(-c(row)) %>% column_to_rownames("plot_id") 
+
+#make some fun new df's #This is for TRTS
+input_trts_row_TO <- trts %>% filter(row == "TO") #%>% column_to_rownames("plot_id") 
+input_trts_row_L <- trts %>% filter(row == "L") %>% rownames_to_column() %>% filter(!rowname=="7-10-E") %>% column_to_rownames("rowname") 
+
+
+
+
+
+
+adonis2(permA_input_TO~ seed_trt,
+        input_trts_row_TO,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms",
+        parallel = clus
+        ) #significant species composition change in the TAKE OUT rows ! ! !
+
+
+
+#compare what values are in check and not chuck
+#check <- permA_input_L %>% rownames_to_column()
+#chuck <- input_trts_row_L %>% rownames_to_column()
+
+#view(chuck %>%  #For df1 values not in df2 
+#  filter(!chuck$rowname %in% check$rowname))
+# so I need to get rid of 7-10-E from trts
+
+#input_trts_row_L <- input_trts_row_L %>% filter(!rowname=="7-10-E") %>% column_to_rownames("rowname") 
+
+
+
+
+adonis2(permA_input_L ~ seed_trt,
+        input_trts_row_L,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms",
+        parallel = clus
+        ) # NOT significant species composition change in the LEAVE rows ! ! !
+
+#take away: you have to separate the two row types to get significant variation between the treatment via permanovas
+
+
 ```
 
