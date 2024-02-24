@@ -389,8 +389,8 @@ nmdsE <- metaMDS(comm = input_dat,
              weakties = TRUE,
              model = "global",
              maxit = 5000,
-             try = 5000,
-             trymax = 5000)
+             try = 2000,
+             trymax = 2000)
 
 nmdsE$stress
 plot(nmdsE)
@@ -406,6 +406,7 @@ orditorp(nmdsE,display="sites",cex=0.25,air=0.01)
 ef
 
 vegan3d::ordiplot3d(nmdsE, display="sites", choices = 1:3)
+vegan3d::ordiplot3d(nmdsE, display="species",col="red", choices = 1:3)
 ```
 
 ```{r, cache=TRUE}
@@ -414,13 +415,13 @@ ef <- envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 1:3, na
 ef
 
 ef1 <- envfit(nmdsE ~ stand, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
-ef1
+ef1 #Significant ! ! !
 
 ef2 <- envfit(nmdsE ~ n_seedlings, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
 ef2
 
 ef3 <- envfit(nmdsE ~ seed_trt, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
-ef3
+ef3 #Significant ! ! !
 
 ef4 <- envfit(nmdsE ~ ppfd_total_under_per_day_m_jor_mol_m2day, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
 ef4
@@ -504,8 +505,7 @@ ord2
 anova.cca(ord2)
 anova(ord2, by = "term", permutations = 199)
 
-anova(ord, ord2)
-summary(anova(ord, ord2))
+
 
 ```
 ```{r}
@@ -712,6 +712,61 @@ adonis2(permA_input_L ~ seed_trt,
         ) # NOT significant species composition change in the LEAVE rows ! ! !
 
 #take away: you have to separate the two row types to get significant variation between the treatment via permanovas
+
+
+```
+
+
+```{r}
+
+ # Use this link for help:
+ # https://stackoverflow.com/questions/14711470/plotting-envfit-vectors-vegan-package-in-ggplot2
+
+library(vegan)
+library(ggplot2)
+library(grid)
+data(dune)
+
+# calculate distance for NMDS
+
+NMDS.log<-log1p(input_dat)
+
+set.seed(42)
+
+sol <- nmdsE
+
+scrs <- as.data.frame(scores(sol, display = "species"))
+
+
+set.seed(123)
+vf <- envfit(sol, input_dat, choices= 1:2, perm = 999) #if you put NMDS.log instead of input dat, you get more spp.
+vf3 <- envfit(sol, input_dat, choices= 1:3, perm = 999) #if you put NMDS.log instead of input dat, you get more spp.
+vf
+
+
+
+spp.scrs <- as.data.frame(scores(vf, display = "vectors"))
+spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs))
+
+
+arrow_factor <- ordiArrowMul(vf)
+spp.scrs <- as.data.frame(scores(vf, display = "vectors")) * arrow_factor
+spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs), Pvalues = vf$vectors$pvals, R_squared = vf$vectors$r)
+
+# select significance similarly to `plot(vf, p.max = 0.01)`
+spp.scrs <- subset(spp.scrs, Pvalues < 0.017)
+spp.scrs
+
+ p <- ggplot(scrs) +
+  geom_point(mapping = aes(x = NMDS1, y = NMDS2)) +
+  coord_fixed() + ## need aspect ratio of 1!
+  geom_segment(data = spp.scrs,
+               aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+               arrow = arrow(length = unit(0.25, "cm")), colour = "cyan4") +
+  geom_text(data = spp.scrs, aes(x = NMDS1, y = NMDS2, label = Species),
+            size = 4, color= "darkred") + theme_minimal()
+
+print(p)
 
 
 ```
