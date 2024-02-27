@@ -158,7 +158,7 @@ m1 <- aov(n_seedlings_mean ~ seed_trt, data = STAND_ROW_SUMMARY)
 summary(m1) #!!! !!! .0452 p value.
 #We have significant number of seedlings predicted by seed treatment
 checkheight <- lm(n_seedlings_mean ~ seed_trt, data=STAND_ROW_SUMMARY)
-glance(checkheight) #same as m1 but as a linear model
+summary(checkheight) #same as m1 but as a linear model
 
 m2 <- aov(n_seedlings ~ standbyrow, data= regen_summary)
 glance(m2)
@@ -754,20 +754,51 @@ spp.scrs <- as.data.frame(scores(vf, display = "vectors")) * arrow_factor
 spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs), Pvalues = vf$vectors$pvals, R_squared = vf$vectors$r)
 
 # select significance similarly to `plot(vf, p.max = 0.01)`
-spp.scrs <- subset(spp.scrs, Pvalues < 0.017)
 spp.scrs
+spp.scrs017 <- subset(spp.scrs, Pvalues < 0.017)
+spp.scrs05  <- subset(spp.scrs, Pvalues < 0.05)
+spp.scrs.rownames <- spp.scrs %>% rownames_to_column() 
 
- p <- ggplot(scrs) +
+
+s1 <- filter(spp.scrs.rownames, rowname == 'SOAR') # these go and pull out the info for the selected spp
+s2 <- filter(spp.scrs.rownames, rowname == 'TEVI')
+s3 <- filter(spp.scrs.rownames, rowname == 'RUCU')
+s4 <- filter(spp.scrs.rownames, rowname == 'CHNC')
+s5 <- filter(spp.scrs.rownames, rowname == 'AN01')
+s6 <- filter(spp.scrs.rownames, rowname == 'DEVI')
+s7 <- filter(spp.scrs.rownames, rowname == 'PPG1')
+s8 <- filter(spp.scrs.rownames, rowname == 'SONU')
+interest <- s1 %>% bind_rows(s2) %>% bind_rows(s3) %>% bind_rows(s4) %>% bind_rows(s5) %>% bind_rows(s6) %>% bind_rows(s7) %>% bind_rows(s8) %>%
+  column_to_rownames( var = "rowname")
+# ef1 and ef4
+
+
+arrow_factor_ef1 <- ordiArrowMul(ef1) #this creates a distance for the arrow (ef1 is stand)
+ef1.scrs <- as.data.frame(scores(ef1, display = "vectors")) * arrow_factor_ef1  #this creates the df for the arrow based on the NMDS and is linked to the centroid
+
+#arrow_factor_ef3 <- ordiArrowMul(ef3) #this creates a distance for the arrow (ef3 is seed trt)
+#f3.scrs <- as.data.frame(scores(ef3, display = "vectors")) * arrow_factor_ef3  #this creates the df for the arrow based on the NMDS and is linked to the centroid
+
+#okay seed trt is complex. I am going to have to pull out individual vectors of seeded and unseeded
+#cant seem to plot seed treatments individually.
+
+
+p <- ggplot(scrs) +
   geom_point(mapping = aes(x = NMDS1, y = NMDS2)) +
   coord_fixed() + ## need aspect ratio of 1!
-  geom_segment(data = spp.scrs,
+  geom_segment(data = interest, # data = whatever vectors you want
                aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
-               arrow = arrow(length = unit(0.25, "cm")), colour = "cyan4") +
-  geom_text(data = spp.scrs, aes(x = NMDS1, y = NMDS2, label = Species),
-            size = 4, color= "darkred") + theme_minimal()
+               arrow = arrow(length = unit(0.25, "cm")), colour = "darkred") + #this is spp vector names
+  #geom_segment(data= ef1.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+    #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
+    #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+     #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
+  geom_text(data = interest, aes(x = NMDS1, y = NMDS2, label = Species), # data = vector names 
+            size = 4, color= "darkred") + theme_minimal() 
+  #geom_text(data = ef1.scrs, aes(x = NMDS1, y = NMDS2, label = "stand", nudge_y = .25), # data = vector names 
+   #         size = 5, color= "orange") + theme_minimal()
 
-print(p)
-
+plot(p)
 
 ```
 
