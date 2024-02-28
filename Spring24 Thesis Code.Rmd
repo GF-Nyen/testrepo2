@@ -831,7 +831,7 @@ n5 <- filter(spp.scrs3.05, Species == 'SOAR')
 n6 <- filter(spp.scrs3.05, Species == 'DEST')
 n7 <- filter(spp.scrs3.05, Species == 'WAMA')
 n8 <- filter(spp.scrs3.05, Species == 'TEVI') #not as sig as others above
-
+interesting <- n1 %>% bind_rows(n2) %>% bind_rows(n3) %>% bind_rows(n4) %>% bind_rows(n5) %>% bind_rows(n6) %>% bind_rows(n7) %>% bind_rows(n8) 
 
 
 arrow_factor_ef1 <- ordiArrowMul(ef1) #this creates a distance for the arrow (ef1 is stand)
@@ -866,27 +866,42 @@ plot(p)
 
 #the following is for picking what NMDS axis you want to represent!
 
-p3 <- ggplot(scrs) +
+p12 <- ggplot(scrs) +
   geom_point(mapping = aes(x = NMDS1, y = NMDS2)) + # HERE YOU CAN CHANGE THE AXIS 
   coord_fixed() + ## need aspect ratio of 1!
-  geom_segment(data = n1, # data = whatever vectors you want
+  geom_segment(data = interesting, # data = whatever vectors you want
                aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2), # HERE YOU CAN CHANGE THE AXIS 
                arrow = arrow(length = unit(0.25, "cm")), colour = "darkred") + #this is spp vector names
   #geom_segment(data= ef1.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
     #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
     #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
      #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
-  geom_text(data = n1, aes(x = NMDS1, y = NMDS2, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
+  geom_text(data = interesting, aes(x = NMDS1, y = NMDS2, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
             size = 4, color= "darkred") + theme_minimal() 
   #geom_text(data = ef1.scrs, aes(x = NMDS1, y = NMDS2, label = "stand", nudge_y = .25), # data = vector names 
    #         size = 5, color= "orange") + theme_minimal()
 
-plot(p3)
+plot(p12)
 
 
 
 
+p23 <- ggplot(scrs) +
+  geom_point(mapping = aes(x = NMDS2, y = NMDS3)) + # HERE YOU CAN CHANGE THE AXIS 
+  coord_fixed() + ## need aspect ratio of 1!
+  geom_segment(data = interesting, # data = whatever vectors you want
+               aes(x = 0, xend = NMDS2, y = 0, yend = NMDS3), # HERE YOU CAN CHANGE THE AXIS 
+               arrow = arrow(length = unit(0.25, "cm")), colour = "darkred") + #this is spp vector names
+  #geom_segment(data= ef1.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+    #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
+    #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+     #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
+  geom_text(data = interesting, aes(x = NMDS2, y = NMDS3, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
+            size = 4, color= "darkred") + theme_minimal() 
+  #geom_text(data = ef1.scrs, aes(x = NMDS1, y = NMDS2, label = "stand", nudge_y = .25), # data = vector names 
+   #         size = 5, color= "orange") + theme_minimal()
 
+plot(p23)
 
 
 
