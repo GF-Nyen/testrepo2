@@ -632,7 +632,17 @@ library(vegan)
 trts$stand <- as.factor(trts$stand)
 trts$seed_trt <- as.factor(trts$seed_trt)
 
-adonis2(input_dat ~ seed_trt/stand,
+adonis2(input_dat ~ seed_trt/stand, ##seed_treet nested in stand is very significant for spp composition differences
+        trts,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms",
+        parallel = clus #,
+       #strata = trts$seed_trt
+      )
+
+adonis2(input_dat ~ stand, #stand is very significant for spp composition differences
         trts,
         permutations = 99999,
         method= "bray",
@@ -641,9 +651,36 @@ adonis2(input_dat ~ seed_trt/stand,
         parallel = clus
       )
 
+adonis2(input_dat ~ seed_trt, #seed trt alone is .06228
+        trts,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms",
+        parallel = clus #,
+         # strata = trts$stand
+      )
 
+adonis2(input_dat ~ row, # row is not significant
+        trts,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms",
+        parallel = clus,
+        strata= trts$row
+      )
 
-adonis2(input_dat ~ seed_trt,
+adonis2(input_dat ~ ppfd_total_under_per_day_m_jor_mol_m2day, # light is def not sig.
+        trts,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms",
+        parallel = clus
+      )
+
+adonis2(input_dat ~ n_seedlings, # n_seedlings is def not sig.
         trts,
         permutations = 99999,
         method= "bray",
@@ -742,22 +779,36 @@ set.seed(123)
 vf <- envfit(sol, input_dat, choices= 1:2, perm = 999) #if you put NMDS.log instead of input dat, you get more spp.
 vf3 <- envfit(sol, input_dat, choices= 1:3, perm = 999) #if you put NMDS.log instead of input dat, you get more spp.
 vf
-
+vf3 #3d
 
 
 spp.scrs <- as.data.frame(scores(vf, display = "vectors"))
 spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs))
 
 
+spp.scrs3 <- as.data.frame(scores(vf3, display = "vectors")) #3d
+spp.scrs3 <- cbind(spp.scrs3, Species = rownames(spp.scrs3))  #3d
+
 arrow_factor <- ordiArrowMul(vf)
 spp.scrs <- as.data.frame(scores(vf, display = "vectors")) * arrow_factor
 spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs), Pvalues = vf$vectors$pvals, R_squared = vf$vectors$r)
+
+arrow_factor3 <- ordiArrowMul(vf3) #3d 
+spp.scrs3 <- as.data.frame(scores(vf3, display = "vectors")) * arrow_factor3 #3d
+spp.scrs3 <- cbind(spp.scrs3, Species = rownames(spp.scrs3), Pvalues = vf3$vectors$pvals, R_squared = vf3$vectors$r) # 3d
+
 
 # select significance similarly to `plot(vf, p.max = 0.01)`
 spp.scrs
 spp.scrs017 <- subset(spp.scrs, Pvalues < 0.017)
 spp.scrs05  <- subset(spp.scrs, Pvalues < 0.05)
 spp.scrs.rownames <- spp.scrs %>% rownames_to_column() 
+
+spp.scrs3 #3d
+spp.scrs3.05 <- subset(spp.scrs3, Pvalues < 0.05) #3d
+#spp.scrs05  <- subset(spp.scrs, Pvalues < 0.05)
+#spp.scrs.rownames <- spp.scrs %>% rownames_to_column() 
+
 
 
 s1 <- filter(spp.scrs.rownames, rowname == 'SOAR') # these go and pull out the info for the selected spp
@@ -771,6 +822,16 @@ s8 <- filter(spp.scrs.rownames, rowname == 'SONU')
 interest <- s1 %>% bind_rows(s2) %>% bind_rows(s3) %>% bind_rows(s4) %>% bind_rows(s5) %>% bind_rows(s6) %>% bind_rows(s7) %>% bind_rows(s8) %>%
   column_to_rownames( var = "rowname")
 # ef1 and ef4
+
+n1 <- filter(spp.scrs3.05, Species == "PIPA")
+n2 <- filter(spp.scrs3.05, Species == "PPG1")
+n3 <- filter(spp.scrs3.05, Species == "SONU")
+n4 <- filter(spp.scrs3.05, Species == 'CHNC')
+n5 <- filter(spp.scrs3.05, Species == 'SOAR')
+n6 <- filter(spp.scrs3.05, Species == 'DEST')
+n7 <- filter(spp.scrs3.05, Species == 'WAMA')
+n8 <- filter(spp.scrs3.05, Species == 'TEVI') #not as sig as others above
+
 
 
 arrow_factor_ef1 <- ordiArrowMul(ef1) #this creates a distance for the arrow (ef1 is stand)
@@ -799,6 +860,37 @@ p <- ggplot(scrs) +
    #         size = 5, color= "orange") + theme_minimal()
 
 plot(p)
+
+
+
+
+#the following is for picking what NMDS axis you want to represent!
+
+p3 <- ggplot(scrs) +
+  geom_point(mapping = aes(x = NMDS1, y = NMDS2)) + # HERE YOU CAN CHANGE THE AXIS 
+  coord_fixed() + ## need aspect ratio of 1!
+  geom_segment(data = n1, # data = whatever vectors you want
+               aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2), # HERE YOU CAN CHANGE THE AXIS 
+               arrow = arrow(length = unit(0.25, "cm")), colour = "darkred") + #this is spp vector names
+  #geom_segment(data= ef1.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+    #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
+    #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+     #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
+  geom_text(data = n1, aes(x = NMDS1, y = NMDS2, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
+            size = 4, color= "darkred") + theme_minimal() 
+  #geom_text(data = ef1.scrs, aes(x = NMDS1, y = NMDS2, label = "stand", nudge_y = .25), # data = vector names 
+   #         size = 5, color= "orange") + theme_minimal()
+
+plot(p3)
+
+
+
+
+
+
+
+
+
 
 ```
 
