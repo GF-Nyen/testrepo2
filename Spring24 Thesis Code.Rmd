@@ -72,6 +72,12 @@ trtu5 <- trtu5 %>% add_column(add_column = "U") #all of this created new column 
 regendata <- bind_rows(trts6, trtu5) #this mashed the two tables together (U) and (S)
 regendata <- rename(regendata, seed_trt = add_column) #this changed the name of the new column to "seed_trt" which now contains a S or a U.
 regendata$seed_trt <- as.factor(regendata$seed_trt)
+
+
+
+
+
+
 ```
 
 
@@ -167,6 +173,10 @@ summary(m2)
 m3 <- aov(n_seedlings_mean ~ row, data = STAND_ROW_SUMMARY)
 summary(m3) #N seedlings not significantly affected by row type
 
+m80 <- aov(n_seedlings_mean ~ stand, data = STAND_ROW_SUMMARY)
+summary(m80) #N seedlings not significantly affected by row type
+
+
 testing<- STAND_ROW_SUMMARY
 testing[is.na(testing)] <- 0 #this created a new data frame where all NA values have been zeroed out
 
@@ -177,7 +187,6 @@ summary(m4) #height is not significant by row
 head(STAND_ROW_SUMMARY)
 m5 <- aov(height_mean ~ row, data = STAND_ROW_SUMMARY)
 summary(m5) #height is not significant by row
-
 
 ### make plots to visualize the models ###
 ggplot(data=testing, aes( x=row, y= height_mean)) + geom_boxplot() +
@@ -201,6 +210,25 @@ ggplot(data=STAND_ROW_SUMMARY, aes(x=seed_trt, y=height_mean), na.rm=T) +
 
 ### make plots to visualize the models ###
 ```
+
+```{r}
+#> AverageLiveBAperHa
+
+trtz <- c("U","U","U","S","S","S","S","U")
+stands<- c(3,4,5,6,7,8,9,10)
+AverageLiveBAperHA<- c(15.02291,8.62360,11.40782,13.34491,10.57843,14.65041,14.55944,12.90943)
+
+badiff<- cbind.data.frame(trtz, stands, AverageLiveBAperHA)
+badiff$trtz <- as.factor(badiff$trtz)
+badiff$stands <- as.factor(badiff$stands)
+
+
+m007 <- aov(AverageLiveBAperHA ~ trtz, data= badiff)
+summary(m007)
+m006 <- aov(AverageLiveBAperHA ~ stands, data= badiff)
+summary(m006)
+```
+
 
 ```{r}
 #lets make a glmmADMB model after what Joshua J. Puhlick sent me
@@ -296,7 +324,120 @@ trtsNP$stand <- as.factor(trtsNP$stand)
 trtsNP$seed_trt <- as.factor(trtsNP$seed_trt)
 trtsNP$row <- as.factor(trtsNP$row)
 
+
+
+
+
 ```
+
+
+```{r "light testing between stands and treatments"}
+
+
+
+seed1 <- data %>% filter(stand == 6)
+seed2 <- data %>% filter(stand == 7)
+seed3 <- data %>% filter(stand == 8)
+seed4 <- data %>% filter(stand == 9)
+trts5 <- bind_rows(seed1,seed2,seed3,seed4)
+trts6 <- trts5 %>% add_column(add_column = "S") #all of this created new column with "S" for seeded
+
+unse1 <- data %>% filter(stand == 3)
+unse2 <- data %>% filter(stand == 4)
+unse3 <- data %>% filter(stand == 5)
+unse4 <- data %>% filter(stand == 10)
+trtu5 <- bind_rows(unse1,unse2,unse3,unse4)
+trtu5 <- trtu5 %>% add_column(add_column = "U") #all of this created new column with "U" for unseeded
+
+data <- bind_rows(trts6, trtu5) #this mashed the two tables together (U) and (S)
+data <- rename(data, seed_trt = add_column) #this changed the name of the new column to "seed_trt" which now contains a S or a U.
+data$seed_trt <- as.factor(data$seed_trt)
+
+meds <- aov(lai_2000_lin ~ row, data= data)
+summary(meds)   #lai is significant by row !!!
+
+beds <- aov(lai_2000_lin ~ stand, data= data)
+summary(beds) #lai is significant by stand !!!
+
+leads <- aov(lai_2000_lin ~ seed_trt, data= data)
+summary(leads) #lai is significant by seed_trt !!!
+
+group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+lighttest <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, transect, seed_trt) %>% group_by(stand, row, seed_trt) %>% 
+  summarise(ppfdaverage = mean(ppfd_total_under_per_day_m_jor_mol_m2day), 
+            gap_fractionaverage=mean(gap_fraction),
+            lai_2000_linaverage = mean(lai_2000_lin),
+            opennessaverage = mean(openness))
+
+test3 <- aov(gap_fractionaverage ~ seed_trt, data= lighttest)
+summary(test3)
+
+test4 <- aov(gap_fractionaverage ~ stand, data= lighttest)
+summary(test4)
+
+test5 <- aov(gap_fractionaverage ~ seed_trt, data= lighttest)
+summary(test5)
+
+range(data$gap_fraction)
+mean(lighttest$gap_fractionaverage)
+range(lighttest$gap_fractionaverage)
+
+ggplot(data=lighttest, aes(x=seed_trt, y=gap_fractionaverage)) +
+  geom_boxplot() +labs(y= "Mean Gap Fraction", x = "Seeding Treatment") +theme_minimal() 
+
+ggplot(lighttest, aes(
+  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)),
+  y = gap_fractionaverage,
+  fill = gap_fractionaverage
+)) +   geom_boxplot() + theme_minimal()
+
+
+letter_data <- data.frame(letters = c("a", "b"), seed_trt = c("S", "U"))
+
+data_quantiles <- lighttest %>% 
+  group_by(seed_trt) %>% 
+  summarise(gap_quant = quantile(gap_fractionaverage)[4],
+            lai_quant = quantile(lai_2000_linaverage)[4],
+            canopy_quant = quantile(opennessaverage))
+
+letter_data <- letter_data %>% left_join(data_quantiles)
+
+ggplot(lighttest, aes(x = seed_trt, y = gap_fractionaverage)) +
+       geom_boxplot() +
+       theme_minimal() +
+        geom_text(data = letter_data, aes(x = seed_trt, y = gap_quant, label = letters), size = 4, color = "black", hjust = -1.25, vjust = -0.8, fontface = "bold") +labs(y= "Mean Gap Fraction", x = "Seeding Treatment")
+
+
+
+
+
+
+
+
+```
+
+```{r "more light checking" }
+
+light<- trtsNP %>% group_by(stand, row, seed_trt) %>% summarise(light_mean = mean(ppfd_total_under_per_day_m_jor_mol_m2day))
+
+
+yes<-aov(light_mean ~ seed_trt, data= light)
+summary(yes)
+ao <- aov(trtsNP$ppfd_total_under_per_day_m_jor_mol_m2day ~ seed_trt, data= trtsNP)
+summary(ao)
+
+
+cor(data$openness, data$gap_fraction)
+cor(trtsNP$n_seedlings,trtsNP$ppfd_total_under_per_day_m_jor_mol_m2day )
+cor(trtsNP$biomass_sum,trtsNP$ppfd_total_under_per_day_m_jor_mol_m2day ) # corelation 0.2647
+
+
+summary(lm(biomass_sum ~ seed_trt, data= trtsNP))
+
+```
+
 
 ```{r}
 library(glmmADMB)
@@ -316,7 +457,7 @@ fit_binary2 <- glmmadmb(binary ~ seed_trt,
   random = ~1 | stand/row, family='binomial', link='cloglog',
   data=trtsNP)
 
-summary(fit_binary)
+summary(fit_binary2)
 
 
 
@@ -391,7 +532,7 @@ nmdsE <- metaMDS(comm = input_dat,
              maxit = 5000,
              try = 2000,
              trymax = 2000)
-
+nmdsE
 nmdsE$stress
 plot(nmdsE)
 
@@ -538,6 +679,15 @@ summary(bio2) #0.057
  Test2<- lm(biomass_sum_row ~ row, data=BIOMASS_ROW_SUMMARY)
 summary(Test2) #row is not significant for the biomass differentals 
 
+
+seedday <- BIOMASS_ROW_SUMMARY %>% filter(seed_trt == "S")
+mean(seedday$biomass_sum_row) # 199.5352
+mean(seedday$biomass_sum_sd) # 93.69091
+
+unseedday <- BIOMASS_ROW_SUMMARY %>% filter(seed_trt == "U")
+mean(unseedday$biomass_sum_row) # 145.2537
+mean(unseedday$biomass_sum_sd) # 75.65474
+
 ```
 
 
@@ -626,6 +776,11 @@ summary(m1) # this is biomass sum being predicted by seed treatments with the ra
 
 #this is a crossed random effect (not nested) <- (1|group1) + (1|group2)
 #where group1 has crossed random effects with group2
+
+hey <- lm(data=glmtrts, n_seedlings ~ seed_trt)
+summary(hey)
+
+
 ```
 ```{r}
 library(vegan)
@@ -642,7 +797,7 @@ adonis2(input_dat ~ seed_trt/stand, ##seed_treet nested in stand is very signifi
        #strata = trts$seed_trt
       )
 
-adonis2(input_dat ~ stand, #stand is very significant for spp composition differences
+ adonis2(input_dat ~ stand, #stand is very significant for spp composition differences
         trts,
         permutations = 99999,
         method= "bray",
@@ -762,6 +917,7 @@ adonis2(permA_input_L ~ seed_trt,
 library(vegan)
 library(ggplot2)
 library(grid)
+library(cowplot)
 data(dune)
 
 # calculate distance for NMDS
@@ -781,21 +937,30 @@ vf3 <- envfit(sol, input_dat, choices= 1:3, perm = 999) #if you put NMDS.log ins
 vf
 vf3 #3d
 
+# I found that N_seedlings and PIPA dont point in the smame direction
 
-spp.scrs <- as.data.frame(scores(vf, display = "vectors"))
-spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs))
-
-
-spp.scrs3 <- as.data.frame(scores(vf3, display = "vectors")) #3d
-spp.scrs3 <- cbind(spp.scrs3, Species = rownames(spp.scrs3))  #3d
+spp.scrs <- as.data.frame(scores(vf, display = "vectors")) #2d
+spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs))  #2d
 
 arrow_factor <- ordiArrowMul(vf)
 spp.scrs <- as.data.frame(scores(vf, display = "vectors")) * arrow_factor
 spp.scrs <- cbind(spp.scrs, Species = rownames(spp.scrs), Pvalues = vf$vectors$pvals, R_squared = vf$vectors$r)
+### two dimentions above
+ 
+
+## three dimentions below ##
+spp.scrs3 <- as.data.frame(scores(vf3, display = "vectors")) #3d
+spp.scrs3 <- cbind(spp.scrs3, Species = rownames(spp.scrs3))  #3d
 
 arrow_factor3 <- ordiArrowMul(vf3) #3d 
 spp.scrs3 <- as.data.frame(scores(vf3, display = "vectors")) * arrow_factor3 #3d
 spp.scrs3 <- cbind(spp.scrs3, Species = rownames(spp.scrs3), Pvalues = vf3$vectors$pvals, R_squared = vf3$vectors$r) # 3d
+## three dimentions above ##
+
+
+ef2.scrs <-as.data.frame(scores(ef2, display = "vectors")) #try to get ef2 into the ggplot (3d)
+ef2.scrs <- cbind(ef2.scrs, Species = rownames(ef2.scrs))  #3d
+arrow_factor_ef <- ordiArrowMul(ef2.scrs) #3d 
 
 
 # select significance similarly to `plot(vf, p.max = 0.01)`
@@ -831,7 +996,13 @@ n5 <- filter(spp.scrs3.05, Species == 'SOAR')
 n6 <- filter(spp.scrs3.05, Species == 'DEST')
 n7 <- filter(spp.scrs3.05, Species == 'WAMA')
 n8 <- filter(spp.scrs3.05, Species == 'TEVI') #not as sig as others above
+n9 <- filter(spp.scrs3.05, Species == "RUCU")
+n10 <- filter(spp.scrs3.05, Species == "AN01")
+n11 <- filter(spp.scrs3.05, Species == "ACGR")
 interesting <- n1 %>% bind_rows(n2) %>% bind_rows(n3) %>% bind_rows(n4) %>% bind_rows(n5) %>% bind_rows(n6) %>% bind_rows(n7) %>% bind_rows(n8) 
+
+
+finalspp <- n3 %>% bind_rows(n4) %>% bind_rows(n5) %>% bind_rows(n6) %>% bind_rows(n8) %>% bind_rows(n9) %>% bind_rows(n2) %>% bind_rows(n10) 
 
 
 arrow_factor_ef1 <- ordiArrowMul(ef1) #this creates a distance for the arrow (ef1 is stand)
@@ -839,6 +1010,8 @@ ef1.scrs <- as.data.frame(scores(ef1, display = "vectors")) * arrow_factor_ef1  
 
 #arrow_factor_ef3 <- ordiArrowMul(ef3) #this creates a distance for the arrow (ef3 is seed trt)
 #f3.scrs <- as.data.frame(scores(ef3, display = "vectors")) * arrow_factor_ef3  #this creates the df for the arrow based on the NMDS and is linked to the centroid
+
+
 
 #okay seed trt is complex. I am going to have to pull out individual vectors of seeded and unseeded
 #cant seem to plot seed treatments individually.
@@ -850,8 +1023,8 @@ p <- ggplot(scrs) +
   geom_segment(data = interest, # data = whatever vectors you want
                aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
                arrow = arrow(length = unit(0.25, "cm")), colour = "darkred") + #this is spp vector names
-  #geom_segment(data= ef1.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
-    #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
+  geom_segment(data= ef1.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+               arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
     #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
      #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
   geom_text(data = interest, aes(x = NMDS1, y = NMDS2, label = Species), # data = vector names 
@@ -905,7 +1078,42 @@ plot(p23)
 
 
 
+p77 <- ggplot(scrs) +
+  geom_point(mapping = aes(x = NMDS2, y = NMDS3)) + # HERE YOU CAN CHANGE THE AXIS 
+  coord_fixed() + ## need aspect ratio of 1!
+  geom_segment(data = finalspp, # data = whatever vectors you want
+               aes(x = 0, xend = NMDS2, y = 0, yend = NMDS3), # HERE YOU CAN CHANGE THE AXIS 
+               arrow = arrow(length = unit(0.25, "cm")), colour = "darkred") + #this is spp vector names
+  #geom_segment(data= ef1.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+    #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
+    #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+     #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
+  geom_text(data = finalspp, aes(x = NMDS2, y = NMDS3, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
+            size = 4, color= "darkred") + theme_minimal() 
+  #geom_text(data = ef1.scrs, aes(x = NMDS1, y = NMDS2, label = "stand", nudge_y = .25), # data = vector names 
+   #         size = 5, color= "orange") + theme_minimal()
 
+plot(p77) # this has been placed in the thesis
+
+
+p78 <- ggplot(scrs) +
+  geom_point(mapping = aes(x = NMDS1, y = NMDS3)) + # HERE YOU CAN CHANGE THE AXIS 
+  coord_fixed() + ## need aspect ratio of 1!
+  geom_segment(data = finalspp, # data = whatever vectors you want
+               aes(x = 0, xend = NMDS1, y = 0, yend = NMDS3), # HERE YOU CAN CHANGE THE AXIS 
+               arrow = arrow(length = unit(0.25, "cm")), colour = "darkred") + #this is spp vector names
+  #geom_segment(data= ef1.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+    #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
+    #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+     #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
+  geom_text(data = finalspp, aes(x = NMDS1, y = NMDS3, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
+            size = 4, color= "darkred") + theme_minimal() 
+  #geom_text(data = ef1.scrs, aes(x = NMDS1, y = NMDS2, label = "stand", nudge_y = .25), # data = vector names 
+   #         size = 5, color= "orange") + theme_minimal()
+
+plot(p78) # this has been placed in the thesis
+
+plot_grid(p77, p78)
 
 ```
 
