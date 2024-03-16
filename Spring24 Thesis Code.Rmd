@@ -1144,7 +1144,7 @@ MUEX_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
                       summarise(spp_biomass =sum(dried_weight_g)) %>%
                       group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
                       filter(species_code == "MUEX")
-spp_plots <- bind_rows(ARBE_plots,TEVI_plots,SOSE_plots,SONU_plots,MUEX_plots)
+spp_plots <- bind_rows(ARBE_plots,TEVI_plots,SOSE_plots,SONU_plots)
 
 
 # create a dataset
@@ -1154,10 +1154,11 @@ spp_plots <- bind_rows(ARBE_plots,TEVI_plots,SOSE_plots,SONU_plots,MUEX_plots)
 # spp_plots <- data.frame(specie,condition,value)
  
 # Stacked
-ggplot(spp_plots, aes(fill=species_code, y=spp_biomass,  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)))) + 
+ggplot(spp_plots, aes(fill=species_code,  y=spp_biomass,  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)))) + 
     geom_bar(position="stack", stat="identity") +
          scale_x_discrete("stand", drop = FALSE) +
-            scale_fill_manual("legend", values = c("ARBE" = "darkgray", "MUEX" = "orange", "SONU" = "skyblue", "SOSE" = "pink2", "TEVI"= "green3"))+
+            scale_fill_manual("legend", values = c("ARBE" = "darkgray", "SONU" = "darkviolet", 
+                                                   "SOSE" = "pink2", "TEVI"= "darkturquoise"))+
                labs(y="Species Biomass(g)", x= "Stand") +
                theme_minimal()
   
