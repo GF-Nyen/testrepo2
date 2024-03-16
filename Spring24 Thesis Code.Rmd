@@ -362,8 +362,7 @@ summary(beds) #lai is significant by stand !!!
 leads <- aov(lai_2000_lin ~ seed_trt, data= data)
 summary(leads) #lai is significant by seed_trt !!!
 
-group_by(plot_id) %>%
-  summarise(biomass_sum = sum(biomass))
+
 
 lighttest <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, transect, seed_trt) %>% group_by(stand, row, seed_trt) %>% 
   summarise(ppfdaverage = mean(ppfd_total_under_per_day_m_jor_mol_m2day), 
@@ -792,8 +791,8 @@ adonis2(input_dat ~ seed_trt/stand, ##seed_treet nested in stand is very signifi
         permutations = 99999,
         method= "bray",
         sqrt.dist = F,
-        by= "terms",
-        parallel = clus #,
+        by= "terms" #,
+        #parallel = clus #,  # if there is an error in Serialize, then remove running using a cluster
        #strata = trts$seed_trt
       )
 
@@ -802,11 +801,11 @@ adonis2(input_dat ~ seed_trt/stand, ##seed_treet nested in stand is very signifi
         permutations = 99999,
         method= "bray",
         sqrt.dist = F,
-        by= "terms",
-        parallel = clus
+        by= "terms" #,
+       # parallel = clus
       )
 
-adonis2(input_dat ~ seed_trt, #seed trt alone is .06228
+adonis2(input_dat ~ seed_trt, #seed trt alone is .06188
         trts,
         permutations = 99999,
         method= "bray",
@@ -822,8 +821,8 @@ adonis2(input_dat ~ row, # row is not significant
         method= "bray",
         sqrt.dist = F,
         by= "terms",
-        parallel = clus,
-        strata= trts$row
+        parallel = clus #,
+       # strata= trts$row
       )
 
 adonis2(input_dat ~ ppfd_total_under_per_day_m_jor_mol_m2day, # light is def not sig.
@@ -960,7 +959,7 @@ spp.scrs3 <- cbind(spp.scrs3, Species = rownames(spp.scrs3), Pvalues = vf3$vecto
 
 ef2.scrs <-as.data.frame(scores(ef2, display = "vectors")) #try to get ef2 into the ggplot (3d)
 ef2.scrs <- cbind(ef2.scrs, Species = rownames(ef2.scrs))  #3d
-arrow_factor_ef <- ordiArrowMul(ef2.scrs) #3d 
+
 
 
 # select significance similarly to `plot(vf, p.max = 0.01)`
@@ -1113,7 +1112,57 @@ p78 <- ggplot(scrs) +
 
 plot(p78) # this has been placed in the thesis
 
-plot_grid(p77, p78)
+plot_grid(p77, p78, labels = c('(A)', '(B)'), label_size = 12)
+
+```
+```{r "more immages for the pub"}
+#HERE I WILL BE WORKING TO CREATE A SPECIES GRAPH PER STAND
+sp<- c("MUEX","SONU","SOSE","TEVI","ARBE")
+
+SONU_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
+                      group_by(stand,row,species_code)  %>%
+                      summarise(spp_biomass =sum(dried_weight_g)) %>%
+                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      filter(species_code == "SONU")
+SOSE_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
+                      group_by(stand,row,species_code)  %>%
+                      summarise(spp_biomass =sum(dried_weight_g)) %>%
+                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      filter(species_code == "SOSE")
+TEVI_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
+                      group_by(stand,row,species_code)  %>%
+                      summarise(spp_biomass =sum(dried_weight_g)) %>%
+                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      filter(species_code == "TEVI")
+ARBE_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
+                      group_by(stand,row,species_code)  %>%
+                      summarise(spp_biomass =sum(dried_weight_g)) %>%
+                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      filter(species_code == "ARBE")
+MUEX_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
+                      group_by(stand,row,species_code)  %>%
+                      summarise(spp_biomass =sum(dried_weight_g)) %>%
+                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      filter(species_code == "MUEX")
+spp_plots <- bind_rows(ARBE_plots,TEVI_plots,SOSE_plots,SONU_plots,MUEX_plots)
+
+
+# create a dataset
+# stand <- c(rep("sorgho" , 3) , rep("poacee" , 3) , rep("banana" , 3) , rep("triticum" , 3) ) #specie in example
+# species <- rep(c("normal" , "stress" , "Nitrogen") , 4) #condition in example
+# biomass <- abs(rnorm(12 , 0 , 15)) #value in example
+# spp_plots <- data.frame(specie,condition,value)
+ 
+# Stacked
+ggplot(spp_plots, aes(fill=species_code, y=spp_biomass,  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)))) + 
+    geom_bar(position="stack", stat="identity") +
+         scale_x_discrete("stand", drop = FALSE) +
+            scale_fill_manual("legend", values = c("ARBE" = "darkgray", "MUEX" = "orange", "SONU" = "skyblue", "SOSE" = "pink2", "TEVI"= "green3"))+
+               labs(y="Species Biomass(g)", x= "Stand") +
+               theme_minimal()
+  
+
+
 
 ```
 
