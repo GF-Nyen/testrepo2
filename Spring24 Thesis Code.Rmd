@@ -20,9 +20,9 @@ detectCores() # counts how many cores the computer has # this is just good to kn
 
 metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv") #this is my meta data from the understory community change over time study
 
-metadata$row <- as.factor(metadata$row)
-metadata$stand <- as.factor(metadata$stand)
-
+metadata$row <- as.factor(metadata$row) #CHANGE row to be a factor 
+metadata$stand <- as.factor(metadata$stand) #CHANGE stand to be a factor
+ 
 
 
 regendata <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/regenplots.csv") #here is the meta data on the understory regen. This includes height of trees, metadata does not
@@ -48,31 +48,31 @@ regendata <- regendata %>%
 regendata$standbyrow <- paste(regendata$stand, "_", regendata$row) #this created a new row in regendata for "stand_by_row" a mixture of how does row type and stand interact 
 
 
-regendata$row <- as.factor(regendata$row)
-regendata$stand <- as.factor(regendata$stand)
+regendata$row <- as.factor(regendata$row) #CHANGE row to be a factor
+regendata$stand <- as.factor(regendata$stand) #CHANGE stand to be a factor
 ```
 
 
 ```{r "add a seed trt column"}
 
-seed1 <- regendata %>% filter(stand == 6)
-seed2 <- regendata %>% filter(stand == 7)
-seed3 <- regendata %>% filter(stand == 8)
-seed4 <- regendata %>% filter(stand == 9)
-trts5 <- bind_rows(seed1,seed2,seed3,seed4)
+seed1 <- regendata %>% filter(stand == 6) #this makes a small table of just stand 6 and all of its data
+seed2 <- regendata %>% filter(stand == 7) #same for 7
+seed3 <- regendata %>% filter(stand == 8) # same for 8
+seed4 <- regendata %>% filter(stand == 9) 
+trts5 <- bind_rows(seed1,seed2,seed3,seed4) #make a table with all of the seeded stands from the smaller tables above
 trts6 <- trts5 %>% add_column(add_column = "S") #all of this created new column with "S" for seeded
 
-unse1 <- regendata %>% filter(stand == 3)
-unse2 <- regendata %>% filter(stand == 4)
-unse3 <- regendata %>% filter(stand == 5)
+unse1 <- regendata %>% filter(stand == 3) #this makes a small table of just stand 3 and all of its data from regendata
+unse2 <- regendata %>% filter(stand == 4) #same for stand 4
+unse3 <- regendata %>% filter(stand == 5) #same for stand 5 
 unse4 <- regendata %>% filter(stand == 10)
 trtu5 <- bind_rows(unse1,unse2,unse3,unse4)
 trtu5 <- trtu5 %>% add_column(add_column = "U") #all of this created new column with "U" for unseeded
 
 regendata <- bind_rows(trts6, trtu5) #this mashed the two tables together (U) and (S)
 regendata <- rename(regendata, seed_trt = add_column) #this changed the name of the new column to "seed_trt" which now contains a S or a U.
-regendata$seed_trt <- as.factor(regendata$seed_trt)
-
+regendata$seed_trt <- as.factor(regendata$seed_trt) #sets seed trt as a factor
+ 
 
 
 
@@ -83,8 +83,8 @@ regendata$seed_trt <- as.factor(regendata$seed_trt)
 
 ```{r} 
 regen_summary <- regendata %>% 
-  group_by(seed_trt, stand, transect, position, row, quadrat) %>% 
-  summarise(n_seedlings  = length(position[regen_count>=1]),
+  group_by(seed_trt, stand, transect, position, row, quadrat) %>%  # organizes the table by these
+  summarise(n_seedlings  = length(position[regen_count>=1]), #this does some math on n_seedlings
             mean_height = mean(height_cm)) #this creates a new df and makes it averaged by heights and counts per quadrat
 
 regen_summary$standbyrow <- paste(regen_summary$stand, "_", regen_summary$row)
@@ -98,20 +98,20 @@ regen_summary$standbyrow <- paste(regen_summary$stand, "_", regen_summary$row)
 
 
 STAND_ROW_SUMMARY   <- regen_summary %>% group_by(stand, row, seed_trt) %>% 
-            summarise(n_seedlings_mean = mean(n_seedlings),
+            summarise(n_seedlings_mean = mean(n_seedlings), #takes N_seedlings and makes a new collum of the mean of the seedlings per new grouping specified by the group_by function
             n_seedlings_sd = sd(n_seedlings),
             height_mean = mean(mean_height, na.rm = TRUE),
             height_sd = sd(mean_height, na.rm = TRUE)) 
 #this is a summary table from regen_summary where each stand has a row type and a seed trt assigned to it. Average heights, and numbers of seedlings alongside SD's are listed in the table. Useful for testing trt effects based on row type
-STAND_ROW_SUMMARY
+STAND_ROW_SUMMARY #print out the table
 
 
-stand_transect_summary  <-regen_summary %>% group_by(stand, transect, row, seed_trt) %>% 
-            summarise(n_seedlings_mean = mean(n_seedlings),
-            n_seedlings_sd = sd(n_seedlings),
-            height_mean = mean(mean_height, na.rm = TRUE),
-            height_sd = sd(mean_height, na.rm = TRUE))
-stand_transect_summary
+stand_transect_summary  <-regen_summary %>% group_by(stand, transect, row, seed_trt) %>%  #here I am sorting down to the transect to get finer data
+            summarise(n_seedlings_mean = mean(n_seedlings), #makes a new variable off of the mean of n_seedlings based on the grouping above
+            n_seedlings_sd = sd(n_seedlings), #makes new variable of sd of n_seedlings based off grouping above
+            height_mean = mean(mean_height, na.rm = TRUE),  #same logic as above
+            height_sd = sd(mean_height, na.rm = TRUE)) #same as above
+stand_transect_summary #print out the table
  stand_transect_summary$standbyrow <- paste(stand_transect_summary$stand, "_", stand_transect_summary$row)
 #this is a summary table from regen_summary where each stand is broken up by transect. Transects had an assigned row type and a seeding treatment. All values had Average heights, and numbers of seedlings alongside SD's are listed in the table.
  
@@ -125,30 +125,30 @@ stand_transect_summary
 
 
 
-m1 <- aov(n_seedlings_mean ~ seed_trt, data = stand_transect_summary)
+m1 <- aov(n_seedlings_mean ~ seed_trt, data = stand_transect_summary) #anova testing if seed trt has an effect on seedlings
 summary(m1) #seed treatment has a p value of 0.013  !!!!!!
 #We have significant number of seedlings predicted by seed treatment
-checkheight <- lm(n_seedlings_mean ~ seed_trt, data=stand_transect_summary)
+checkheight <- lm(n_seedlings_mean ~ seed_trt, data=stand_transect_summary) #anova testing if seed trt has an effect on seedlings
 glance(checkheight) #same as m1 but in lm form !!!!!
 
-m2 <- aov(n_seedlings_mean ~ row, data= stand_transect_summary)
+m2 <- aov(n_seedlings_mean ~ row, data= stand_transect_summary) #anova testing if row type has an effect on seedlings
 glance(m2) ## not significant
 summary(m2)
 
-m3 <- aov(height_mean ~ seed_trt, data = stand_transect_summary)
+m3 <- aov(height_mean ~ seed_trt, data = stand_transect_summary) #anova testing if seed_trt has an effect on seedlings
 summary(m3) ## not significant
 
-m4 <- aov(height_mean ~ row, data = stand_transect_summary )
+m4 <- aov(height_mean ~ row, data = stand_transect_summary ) #anova testing if row type has an effect on seedlings
 summary(m4) ## not significant
 
-m5 <- aov(n_seedlings_mean ~ stand, data = stand_transect_summary )
+m5 <- aov(n_seedlings_mean ~ stand, data = stand_transect_summary ) #anova testing if the stand has an effect on seedlings
 summary(m5) # stand is extremely significant in determining mean number of seedlings or mean number of seedlings are greatly impacted by height !!! !!! !!! 
 
 
 ggplot(stand_transect_summary, aes(
-  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)),
-  y = n_seedlings_mean,
-  fill = row
+  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)), #breaks up the stands into levels of the factor (individual stands)
+  y = n_seedlings_mean, 
+  fill = row # makes it so there is a differential based on the row of the stands
 )) +   geom_boxplot() + theme_minimal() #this is a ggplot using stand transects as the replicates with mean number of seedlings filled into the boxplot
 
 
@@ -214,19 +214,19 @@ ggplot(data=STAND_ROW_SUMMARY, aes(x=seed_trt, y=height_mean), na.rm=T) +
 ```{r}
 #> AverageLiveBAperHa
 
-trtz <- c("U","U","U","S","S","S","S","U")
-stands<- c(3,4,5,6,7,8,9,10)
-AverageLiveBAperHA<- c(15.02291,8.62360,11.40782,13.34491,10.57843,14.65041,14.55944,12.90943)
+trtz <- c("U","U","U","S","S","S","S","U") #make a treatment vector
+stands<- c(3,4,5,6,7,8,9,10) #make a stand vector
+AverageLiveBAperHA<- c(15.02291,8.62360,11.40782,13.34491,10.57843,14.65041,14.55944,12.90943) #make a average live BA Vector. This all came from output from another document. This is the summary that I am using to see if there was a difference in BA/ stand or treatment
 
-badiff<- cbind.data.frame(trtz, stands, AverageLiveBAperHA)
-badiff$trtz <- as.factor(badiff$trtz)
-badiff$stands <- as.factor(badiff$stands)
+badiff<- cbind.data.frame(trtz, stands, AverageLiveBAperHA) #creates the data.frame from the vectors above
+badiff$trtz <- as.factor(badiff$trtz) #set trtz as a factor ~ factors have levels so you can use an anova
+badiff$stands <- as.factor(badiff$stands) #sets the stands as a factor ~ factors have levels so you can use an anova
 
 
-m007 <- aov(AverageLiveBAperHA ~ trtz, data= badiff)
-summary(m007)
-m006 <- aov(AverageLiveBAperHA ~ stands, data= badiff)
-summary(m006)
+m007 <- aov(AverageLiveBAperHA ~ trtz, data= badiff) #anova testing if there was a diff of basal area based on the treatment
+summary(m007) #nope, no diff based on treatment
+m006 <- aov(AverageLiveBAperHA ~ stands, data= badiff) # anova testing if there was a diff of basal area based on the stands
+summary(m006)  #nope, no diff based on thte tands
 ```
 
 
@@ -288,23 +288,21 @@ input_dat <- dat1 %>% column_to_rownames("plot_id")
   #plot side/axis 1 and 2 of 3D figure
   
   ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
-
 seeded6 <- varibs %>% filter(stand == 6)
 seeded7 <- varibs %>% filter(stand == 7)
 seeded8 <- varibs %>% filter(stand == 8)
 seeded9 <- varibs %>% filter(stand == 9)
 trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
 trtseed <- trtseed %>% add_column(add_column = "S")
-
+#~~~#~~~#~~~#~~~#~~~#~~~#~~~#
 unseed3 <- varibs %>% filter(stand == 3)
 unseed4 <- varibs %>% filter(stand == 4)
 unseed5 <- varibs %>% filter(stand == 5)
 unseed10 <- varibs %>% filter(stand == 10)
 trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
 trtunseed <- trtunseed %>% add_column(add_column = "U")
-
 trts <- bind_rows(trtseed,trtunseed)
-
+ ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
 trts <- trts  %>% 
   filter(!is.na(row))
 
@@ -376,7 +374,7 @@ summary(test3)
 test4 <- aov(gap_fractionaverage ~ stand, data= lighttest)
 summary(test4)
 
-test5 <- aov(gap_fractionaverage ~ seed_trt, data= lighttest)
+test5 <- aov(gap_fractionaverage ~ row, data= lighttest)
 summary(test5)
 
 range(data$gap_fraction)
@@ -476,6 +474,7 @@ fit_hpoiss2 <- glmmadmb(n_seedlings ~ biomass_sum*ppfd_total_under_per_day_m_jor
   family = "truncpoiss")
  
 summary(fit_hpoiss2)
+plot(fit_hpoiss2$fitted)
 
 
 ```
@@ -636,14 +635,14 @@ ord
 
 plot(ord)
 anova.cca(ord)
-anova(ord, by="term", permutations = 199)
-anova(ord, by="axis", permutations = 199)
+anova(ord, by="term", permutations = 199) # one way to run the cca anova
+anova(ord, by="axis", permutations = 199) # the other way to run the cca anova
 
 ord2<- cca(input_dat ~ biomass_sum + stand + trtsNP$transect, data=trtsNP)
 ord2
 
 anova.cca(ord2)
-anova(ord2, by = "term", permutations = 199)
+anova(ord2, by = "term", permutations = 199) #checking if a different CCA gives different results
 
 
 
@@ -721,12 +720,13 @@ unseed10 <- varibs %>% filter(stand == 10)
 trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
 trtunseed <- trtunseed %>% add_column(add_column = "U")
 
-trts <- bind_rows(trtseed,trtunseed)
-
+trts <- bind_rows(trtseed,trtunseed) # attached the two treatments and rejoined the whole data group with the new rows, S and U
+### This is to add a seeding treatment to trts by way of using varibs in the chain ###
 trts <- trts  %>% 
   filter(!is.na(row))
 
-trts <- rename(trts, seed_trt = add_column)
+trts <- rename(trts, seed_trt = add_column) # this changed the name of the new column I just made to be seed_trt from add_column.
+
 trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id") %>% column_to_rownames("plot_id")
 # trtsNP is now the data frame to work off for models. It has biomass of all species except PIPA included
 trts <- trts %>% left_join(dat1_summary, by = "plot_id")
@@ -736,7 +736,7 @@ trts$standbyrow <- paste(trts$stand, "_", trts$row)
 trtsNP$standbyrow <- paste(trtsNP$stand, "_", trtsNP$row)
   ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
 
-trtsNP$binary<- with(trtsNP, ifelse(n_seedlings > 0, '1', '0')) %>% as.numeric()
+trtsNP$binary<- with(trtsNP, ifelse(n_seedlings > 0, '1', '0')) %>% as.numeric() #this added a bionary row that is based on if there was any regen. if yes, there is a 1 populated, if no regen quantiites, then a 0 is populated.
 trtsNP$stand <- as.factor(trtsNP$stand)
 trtsNP$seed_trt <- as.factor(trtsNP$seed_trt)
 trtsNP$row <- as.factor(trtsNP$row)
@@ -746,6 +746,8 @@ trtsNP$row <- as.factor(trtsNP$row)
 ```
 
 ```{r "Try to see if lme4 can solve the transect problem"}
+#this entire chunk was just to see if I could tease out if transects were more important for finding seedlings than row type. I came up empty handed so I am basing my new tests off of row types because transects are less representitive and would be harder to defend.
+
 library(lme4)
 library(lmerTest)
 
@@ -777,14 +779,14 @@ summary(m1) # this is biomass sum being predicted by seed treatments with the ra
 #where group1 has crossed random effects with group2
 
 hey <- lm(data=glmtrts, n_seedlings ~ seed_trt)
-summary(hey)
+summary(hey) # a glm model that predicts seedling based on if there was a seed trt or not. SIG
 
 
 ```
 ```{r}
 library(vegan)
-trts$stand <- as.factor(trts$stand)
-trts$seed_trt <- as.factor(trts$seed_trt)
+trts$stand <- as.factor(trts$stand) # set stand as a factor within trts
+trts$seed_trt <- as.factor(trts$seed_trt) # set seed_trt as a factor within trts
 
 adonis2(input_dat ~ seed_trt/stand, ##seed_treet nested in stand is very significant for spp composition differences
         trts,
@@ -1087,8 +1089,8 @@ p77 <- ggplot(scrs) +
     #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
     #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
      #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
-  geom_text(data = finalspp, aes(x = NMDS2, y = NMDS3, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
-            size = 4, color= "darkred") + theme_minimal() 
+  ggrepel::geom_text_repel(data = finalspp, aes(x = NMDS2, y = NMDS3, label = Species), cex = 3, direction = "both", # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
+            size = 7, color= "darkred") + theme_minimal() 
   #geom_text(data = ef1.scrs, aes(x = NMDS1, y = NMDS2, label = "stand", nudge_y = .25), # data = vector names 
    #         size = 5, color= "orange") + theme_minimal()
 
@@ -1105,8 +1107,9 @@ p78 <- ggplot(scrs) +
     #           arrow = arrow(length = unit(0.25, "cm")), colour = "orange1") + #this is the stand vector
     #geom_segment(data= ef3.scrs,aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
      #          arrow = arrow(length = unit(0.25, "cm")), colour = "red1") + #this is for ppfd_...
-  geom_text(data = finalspp, aes(x = NMDS1, y = NMDS3, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
-            size = 4, color= "darkred") + theme_minimal() 
+  ggrepel::geom_text_repel(data = finalspp, aes(x=NMDS1, y=NMDS3, label = Species), cex = 3, direction = "both", 
+ # geom_text(data = finalspp, aes(x = NMDS1, y = NMDS3, label = Species), # data = vector names    # HERE YOU CAN CHANGE THE AXIS 
+            size= 7, color= "darkred") + theme_minimal() 
   #geom_text(data = ef1.scrs, aes(x = NMDS1, y = NMDS2, label = "stand", nudge_y = .25), # data = vector names 
    #         size = 5, color= "orange") + theme_minimal()
 
@@ -1157,12 +1160,37 @@ spp_plots <- bind_rows(ARBE_plots,TEVI_plots,SOSE_plots,SONU_plots)
 ggplot(spp_plots, aes(fill=species_code,  y=spp_biomass,  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)))) + 
     geom_bar(position="stack", stat="identity") +
          scale_x_discrete("stand", drop = FALSE) +
-            scale_fill_manual("legend", values = c("ARBE" = "darkgray", "SONU" = "darkviolet", 
-                                                   "SOSE" = "pink2", "TEVI"= "darkturquoise"))+
-               labs(y="Species Biomass(g)", x= "Stand") +
+            scale_fill_manual("legend", values = c("ARBE" = "red3", "SONU" = "orange2", 
+                                                   "SOSE" = "turquoise", "TEVI"= "blue2"))+
+               labs(y="Species Biomass(g)") +
+               # labs( x= "Stand") +
                theme_minimal()
   
 
+spp_plots$standbyrow <- paste(spp_plots$stand, "_", spp_plots$row) #this created a new row in spp_plots for "stand_by_row" a mixture of how does row type and stand interact 
+spp_plots$standbyrow <- as.factor(spp_plots$standbyrow) #turns standbyrow into a factor
+
+spp_plots <- spp_plots %>% filter(!is.na(row)) #this gets rid of the empty row value in stand 7. it subtracted .17 grams of a sppecies, but it was already recorded in that stand so I think obmiting it is alright in this visual
+LEVELS <- c('3_L',"3_TO", "4_L","4_TO", "5_L", "5_TO", "10_L","10_TO", "6_L", "6_TO", "7_L", "7_TO", "8_L", "8_TO", "9_L", "9_TO")
+
+
+
+df123 <- data.frame( stand = c(3,3), #here I am createing an empty table for stand 3 so that I can merge it into the other table to get zero values in the ggplot below
+row = c("TO", "L"),
+species_code = c("ARBE", "ARBE"),
+spp_biomass = c(0,0))
+df123$standbyrow <- paste(df123$stand, "_", df123$row) 
+df123$standbyrow <- as.factor(df123$standbyrow)
+
+spp_plots <- bind_rows(spp_plots, df123)
+
+
+ggplot(spp_plots, aes(fill=species_code,  y=spp_biomass,  x = factor(standbyrow))) + 
+    geom_bar(position="stack", stat="identity") +
+         scale_x_discrete("standbyrow", drop = FALSE) +
+            scale_fill_manual("legend", values = c("ARBE" = "red3", "SONU" = "orange2", 
+                                                   "SOSE" = "turquoise", "TEVI"= "blue2"))+
+               labs(y="Species Biomass(g)", x= " Stand ") + theme_minimal()
 
 
 ```
