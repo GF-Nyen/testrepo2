@@ -1120,70 +1120,88 @@ plot_grid(p77, p78, labels = c('(A)', '(B)'), label_size = 12)
 ```
 ```{r "more immages for the pub"}
 #HERE I WILL BE WORKING TO CREATE A SPECIES GRAPH PER STAND
-sp<- c("MUEX","SONU","SOSE","TEVI","ARBE")
+sp<- c("MUEX","SONU","SOSE","TEVI","ARBE", "PAVI")
 
-SONU_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
-                      group_by(stand,row,species_code)  %>%
+SONU_plots <- data %>% summarise(stand, row, species_code, dried_weight_g, seed_trt) %>%
+                      group_by(seed_trt, stand,row,species_code)  %>%
                       summarise(spp_biomass =sum(dried_weight_g)) %>%
-                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      group_by(seed_trt, stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
                       filter(species_code == "SONU")
-SOSE_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
-                      group_by(stand,row,species_code)  %>%
+SOSE_plots <- data %>% summarise(stand, row, species_code, dried_weight_g, seed_trt) %>%
+                      group_by(seed_trt, stand,row,species_code)  %>%
                       summarise(spp_biomass =sum(dried_weight_g)) %>%
-                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      group_by(seed_trt, stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
                       filter(species_code == "SOSE")
-TEVI_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
-                      group_by(stand,row,species_code)  %>%
+TEVI_plots <- data %>% summarise(stand, row, species_code, dried_weight_g, seed_trt) %>%
+                      group_by(seed_trt, stand,row,species_code)  %>%
                       summarise(spp_biomass =sum(dried_weight_g)) %>%
-                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      group_by(seed_trt, stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
                       filter(species_code == "TEVI")
-ARBE_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
-                      group_by(stand,row,species_code)  %>%
+ARBE_plots <- data %>% summarise(stand, row, species_code, dried_weight_g, seed_trt) %>%
+                      group_by(seed_trt, stand,row,species_code)  %>%
                       summarise(spp_biomass =sum(dried_weight_g)) %>%
-                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      group_by(seed_trt, stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
                       filter(species_code == "ARBE")
-MUEX_plots <- data %>% summarise(stand, row, species_code, dried_weight_g) %>%
-                      group_by(stand,row,species_code)  %>%
+MUEX_plots <- data %>% summarise(stand, row, species_code, dried_weight_g, seed_trt) %>%
+                      group_by(seed_trt, stand,row,species_code)  %>%
                       summarise(spp_biomass =sum(dried_weight_g)) %>%
-                      group_by(stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      group_by(seed_trt, stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
                       filter(species_code == "MUEX")
-spp_plots <- bind_rows(ARBE_plots,TEVI_plots,SOSE_plots,SONU_plots)
+PAVI_plots <- data %>% summarise(stand, row, species_code, dried_weight_g, seed_trt) %>%
+                      group_by(seed_trt, stand,row,species_code)  %>%
+                      summarise(spp_biomass =sum(dried_weight_g)) %>%
+                      group_by(seed_trt, stand, row, species_code) %>% summarise(spp_biomass = sum(spp_biomass)) %>%
+                      filter(species_code == "PAVI")
+spp_plots <- bind_rows(ARBE_plots,TEVI_plots,SOSE_plots,SONU_plots,PAVI_plots)
 
 
+df123 <- data.frame( stand = c(3,3), #here I am createing an empty table for stand 3 so that I can merge it into the other table to get zero values in the ggplot below
+seed_trt = c("U","U"),                     
+row = c("TO", "L"),
+species_code = c("ARBE", "ARBE"),
+spp_biomass = c(0,0))
+spp_plots <- bind_rows(spp_plots, df123)
+
+
+
+spp_plots['seed_trt'][spp_plots['seed_trt'] == "S"]<- "Seeded"
+spp_plots['seed_trt'][spp_plots['seed_trt'] == "U"]<- "Unseeded"
 # create a dataset
 # stand <- c(rep("sorgho" , 3) , rep("poacee" , 3) , rep("banana" , 3) , rep("triticum" , 3) ) #specie in example
 # species <- rep(c("normal" , "stress" , "Nitrogen") , 4) #condition in example
 # biomass <- abs(rnorm(12 , 0 , 15)) #value in example
 # spp_plots <- data.frame(specie,condition,value)
- 
+
+
+     #  wt_bar <- (ggplot(spp_plots, aes(fill=species_code,  y=spp_biomass,  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9))))
 # Stacked
-ggplot(spp_plots, aes(fill=species_code,  y=spp_biomass,  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)))) + 
+
+
+
+
+wt_bar <- (ggplot(spp_plots, aes(fill=species_code,  y=spp_biomass,  x = factor(stand, levels = c(3, 4, 5, 10, 6, 7, 8, 9)))) + 
     geom_bar(position="stack", stat="identity") +
-         scale_x_discrete("stand", drop = FALSE) +
+         scale_x_discrete("stand", drop = T) +
             scale_fill_manual("legend", values = c("ARBE" = "red3", "SONU" = "orange2", 
-                                                   "SOSE" = "turquoise", "TEVI"= "blue2"))+
+                                                   "SOSE" = "turquoise", "TEVI"= "blue2", 
+                                                   "PAVI" = "green2"))+
                labs(y="Species Biomass(g)") +
-               # labs( x= "Stand") +
-               theme_minimal()
+               theme_minimal())
   
+wt_bar + facet_grid(cols = vars(seed_trt),drop=F, scales = "free_x")
+
+
+
+
+
+
+
 
 spp_plots$standbyrow <- paste(spp_plots$stand, "_", spp_plots$row) #this created a new row in spp_plots for "stand_by_row" a mixture of how does row type and stand interact 
 spp_plots$standbyrow <- as.factor(spp_plots$standbyrow) #turns standbyrow into a factor
 
 spp_plots <- spp_plots %>% filter(!is.na(row)) #this gets rid of the empty row value in stand 7. it subtracted .17 grams of a sppecies, but it was already recorded in that stand so I think obmiting it is alright in this visual
 LEVELS <- c('3_L',"3_TO", "4_L","4_TO", "5_L", "5_TO", "10_L","10_TO", "6_L", "6_TO", "7_L", "7_TO", "8_L", "8_TO", "9_L", "9_TO")
-
-
-
-df123 <- data.frame( stand = c(3,3), #here I am createing an empty table for stand 3 so that I can merge it into the other table to get zero values in the ggplot below
-row = c("TO", "L"),
-species_code = c("ARBE", "ARBE"),
-spp_biomass = c(0,0))
-df123$standbyrow <- paste(df123$stand, "_", df123$row) 
-df123$standbyrow <- as.factor(df123$standbyrow)
-
-spp_plots <- bind_rows(spp_plots, df123)
-
 
 ggplot(spp_plots, aes(fill=species_code,  y=spp_biomass,  x = factor(standbyrow))) + 
     geom_bar(position="stack", stat="identity") +
