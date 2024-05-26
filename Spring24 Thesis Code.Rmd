@@ -188,6 +188,14 @@ head(STAND_ROW_SUMMARY)
 m5 <- aov(height_mean ~ row, data = STAND_ROW_SUMMARY)
 summary(m5) #height is not significant by row
 
+m5 <- aov(height_mean ~ stand, data = STAND_ROW_SUMMARY)
+summary(m5) #height is not significant by row
+
+m5 <- aov(height_mean ~ seed_trt, data = STAND_ROW_SUMMARY)
+summary(m5) #height is not significant by row
+
+
+
 ### make plots to visualize the models ###
 ggplot(data=testing, aes( x=row, y= height_mean)) + geom_boxplot() +
   theme_minimal()
@@ -446,6 +454,7 @@ fit_binary <- glmmadmb(binary ~ biomass_sum,
  random = ~1 | stand/row, family='binomial', link='cloglog',
  data=trtsNP)
 summary(fit_binary) ### fit_binary has a significant factor of biomass_sum
+ranef(fit_binary)
 
 
 #this is a model that josh sent me
@@ -503,7 +512,7 @@ orderedAICtablet$weight <- round(orderedAICtablet$weight,3)  #this changes the w
 
 ```
 
-
+### Close down all NMDS Stuff ###
 
 ```{r}
 
@@ -561,6 +570,10 @@ ef2
 
 ef3 <- envfit(nmdsE ~ seed_trt, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
 ef3 #Significant ! ! !
+# how was this tested? what does this test do? look at : https://www.flutterbys.com.au/stats/tut/tut15.1.html
+
+efstand <- envfit(nmdsE ~ stand, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+efstand
 
 ef4 <- envfit(nmdsE ~ ppfd_total_under_per_day_m_jor_mol_m2day, trts, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
 ef4
@@ -807,7 +820,16 @@ adonis2(input_dat ~ seed_trt/stand, ##seed_treet nested in stand is very signifi
        # parallel = clus
       )
 
-adonis2(input_dat ~ seed_trt, #seed trt alone is .06188
+  adonis2(input_dat ~ stand:seed_trt, #This is SIG 0.00508 and means that stand is nested within seed treatment
+        trts,
+        permutations = 99999,
+        method= "bray",
+        sqrt.dist = F,
+        by= "terms" #,
+       # parallel = clus
+      )
+ 
+adonis2(input_dat ~ seed_trt + stand + row, #seed trt alone is .06188
         trts,
         permutations = 99999,
         method= "bray",
@@ -1118,6 +1140,79 @@ plot(p78) # this has been placed in the thesis
 plot_grid(p77, p78, labels = c('(A)', '(B)'), label_size = 12)
 
 ```
+
+```{r "Axis corelation vectors on the original [base R] plot types"}
+#lets force this code.
+
+ef_seedlings <- envfit(nmdsE ~ n_seedlings, trts, permutations = 99999, choices = 2:3, na.rm = T, iterations= 1000)
+ef_seedlings #this is for the second plot only (only has axis 2 and 3 of nmds)
+
+
+efstand <- envfit(nmdsE ~ stand, trts, permutations = 99999, choices = 2:3, na.rm = T, iterations= 1000)
+efstand #this is for the second plot only (only has axis 2 and 3 of nmds)
+
+
+
+ef_biomass <- envfit(nmdsE ~ biomass_sum, trts, permutations = 99999, choices = 2:3, na.rm = T, iterations= 1000)
+ef_biomass #this is for the second plot only (only has axis 2 and 3 of nmds)
+
+ef_lai <- envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 2:3, na.rm=T, iterations = 1000)
+ef_lai
+
+
+
+# option 1 (I dont like it) 
+#visual number 3
+ordiplot(nmdsE,type="n") #Ordination plot function especially for congested plots
+orditorp(nmdsE,display="sites",col="red",air=0.01) #The function adds text or points to ordination plots
+plot(ef1) + plot(ef2) 
+
+#visual number 2
+ordiplot(nmdsE,type="n", choices = 2:3) #Ordination plot function especially for congested plots
+orditorp(nmdsE,display="sites",col="red",air=0.01, choices = 2:3) #The function adds text or points to ordination plots
+plot(ef_biomass) + plot(ef_seedlings) 
+
+
+
+
+
+
+C:/Users/gn238/Downloads/gn_metadata_wzeros.csv
+
+
+
+
+# Step 2: Create the plot with R code
+plot(nmdsE, display="sites" , xlim = c(-2,2)) #,  ylim = c(-1.25,1.25)) 
+points(nmdsE, display = "sites", pch = 16, col = "black")
+plot(ef1, col= "maroon") + plot(ef2, col= "maroon") +plot(ef, col= "maroon")
+
+# Step 3: Run dev.off() to create the file!
+
+plot(nmdsE, display = "sites",  choices = 2:3)
+points(nmdsE, display = "sites", pch = 16, col = "black", choices= 2:3)
+plot(ef_biomass, col= "maroon") + plot(ef_lai, col= "maroon") +
+plot(ef_seedlings, arrow.mul = 10, col= "maroon")
+
+# now square
+
+
+plot(nmdsE$points, display="sites" , xlim = c(-2,2)) 
+points(nmdsE, display = "sites", pch = 16, col = "black")
+plot(ef1, col= "maroon") + plot(ef2, col= "maroon") +plot(ef, col= "maroon")
+
+# Step 3: Run dev.off() to create the file!
+
+plot(nmdsE, display = "sites",  choices = 2:3)
+points(nmdsE, display = "sites", pch = 16, col = "black", choices= 2:3)
+plot(ef_biomass, col= "maroon") + plot(ef_lai, col= "maroon") +
+plot(ef_seedlings, arrow.mul = 10, col= "maroon")
+
+
+```
+
+
+
 ```{r "more immages for the pub"}
 #HERE I WILL BE WORKING TO CREATE A SPECIES GRAPH PER STAND
 sp<- c("MUEX","SONU","SOSE","TEVI","ARBE", "PAVI")
@@ -1212,4 +1307,33 @@ ggplot(spp_plots, aes(fill=species_code,  y=spp_biomass,  x = factor(standbyrow)
 
 
 ```
+
+
+```{r "see what most and least likely spp are for each trt"}
+
+review_seeded<- data %>% summarise(seed_trt, species_code, species) %>% filter(seed_trt == "S") %>%
+  count(species_code, name="spp_count", sort = TRUE)  %>% 
+  slice_max(n=114, order_by = spp_count, with_ties = FALSE)
+  
+  
+  review_unseeded<- data %>% summarise(seed_trt, species_code, species) %>% filter(seed_trt == "U") %>%
+  count(species_code, name="spp_count", sort = TRUE)  %>% 
+  slice_max(n=114, order_by = spp_count, with_ties = FALSE)
+
+
+
+  table_for_appendix<- data %>% summarise(species_code, species) %>% unique()
+  
+    table_for_appendix<- data %>% dplyr::select( species_code) %>% unique()
+  
+  
+  table_for_appendix<- table_for_appendix %>% left_join(data, by = "species_code") %>% summarize(species_code, species) %>% unique() %>% filter(!species = ("Unk"))
+
+```
+
+```{r}
+
+```
+
+
 
