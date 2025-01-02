@@ -235,6 +235,10 @@ pp_check(Hurdel_mod1NB)
 round(median(bayes_R2_res(Hurdel_mod1NB)), 2) #R2 value of 0.45
 
 
+
+
+
+
 Hurdel_mod1BER<- brm(binary ~  biomass_sum + (1|stand/row),
     data = trtsNP,  family = bernoulli,
    warmup = 1000, iter = 4000, chains = 5,
@@ -274,13 +278,14 @@ summary(Hurdel_mod2)  # This is the winning second model in the hurdel!!!!!!!!!
 pp_check(Hurdel_mod2) # This is the winning second model in the hurdel!!!!!!!!!
 
 round(median(bayes_R2_res(Hurdel_mod2)), 2) #r2 value is 0.38
-
+coef(Hurdel_mod2)
+coef(Hurdel_mod1NB)
 ### This is the best model
 #visualize
 marginal_effects(Hurdel_mod2, "biomass_sum:ppfd_total_under_per_day_m_jor_mol_m2day")
 marginal_effects(Hurdel_mod2, effects = "ppfd_total_under_per_day_m_jor_mol_m2day")
 marginal_effects(Hurdel_mod2, effects = "biomass_sum")
-
+marginal_effects(Hurdel_mod1NB, effects = "biomass_sum")
 
 pp_check(Hurdel_mod2)  # shows dens_overlay plot by default
 pp_check(Hurdel_mod2, type = "error_hist", ndraws = 11)
