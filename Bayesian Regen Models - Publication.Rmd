@@ -1,0 +1,376 @@
+---
+title: "Submit_Bayes_Regen"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-12-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(tidyverse)
+library(glmmADMB)
+library(broom)
+library(vegan)
+library(parallel)
+library(janitor)
+library(rstan)
+library(brms)
+#library("rstanarm")
+options(mc.cores = parallel::detectCores())
+library("loo")
+library("ggplot2")
+library("bayesplot")
+theme_set(bayesplot::theme_default(base_family = "sans"))
+library("latex2exp")
+library("foreign")
+library("bayesboot")
+library(MuMIn)
+SEED <- 1900
+set.seed(SEED)
+
+```
+
+
+```{r}
+##  build your own function to give you a r2 value
+bayes_R2_res <- function(fit) {
+  y <- rstanarm::get_y(fit)
+  ypred <- rstanarm::posterior_epred(fit)
+  if (family(fit)$family == "binomial" && NCOL(y) == 2) {
+    trials <- rowSums(y)
+    y <- y[, 1]
+    ypred <- ypred %*% diag(trials)
+  }
+  e <- -1 * sweep(ypred, 2, y)
+  var_ypred <- apply(ypred, 1, var)
+  var_e <- apply(e, 1, var)
+  var_ypred / (var_ypred + var_e)
+}
+```
+
+```{r "Pull yourself up by your baysian bootstraps"}
+
+#this is another build your own function to use LOO from BRMS which gives you a R2 value
+loo_R2 <- function(fit) {
+    y <- get_y(fit)
+    ypred <- posterior_epred(fit)
+    ll <- log_lik(fit)
+    M <- length(fit$stanfit@sim$n_save)
+    N <- fit$stanfit@sim$n_save[[1]]
+    r_eff <- relative_eff(exp(ll), chain_id = rep(1:M, each = N))
+    psis_object <- psis(log_ratios = -ll, r_eff = r_eff)
+    ypredloo <- E_loo(ypred, psis_object, log_ratios = -ll)$value
+    eloo <- ypredloo-y
+    n <- length(y)
+    rd<-rudirichlet(4000, n)
+    vary <- (rowSums(sweep(rd, 2, y^2, FUN = "*")) -
+             rowSums(sweep(rd, 2, y, FUN = "*"))^2)*(n/(n-1))
+    vareloo <- (rowSums(sweep(rd, 2, eloo^2, FUN = "*")) -
+                rowSums(sweep(rd, 2, eloo, FUN = "*")^2))*(n/(n-1))
+    looR2 <- 1-vareloo/vary
+    looR2[looR2 < -1] <- -1
+    looR2[looR2 > 1] <- 1
+    return(looR2)
+}
+
+```
+
+
+
+```{r}
+#lets make a glmmADMB model after what Joshua J. Puhlick sent me
+
+
+#metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+
+metadata<- read.csv("C:/Users/nyen0010/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+#import the metadata, make all empty entries into NA's
+
+metadata <- metadata %>% mutate(species_code = coalesce(species_code, species))
+head(metadata, 20)
+#replace all blank species with the unknown official names listed in the species_code column
+
+data <-metadata %>% filter(!is.na(species_code))
+#get rid of the entries without a species code after the coalesce.
+
+data <- data %>% filter(!plot_id=="9-6-K")
+#takes out a plot that didnt have data to it
+
+varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, transect) %>%
+ distinct()
+#create a variable data frame
+
+varibs<- varibs  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
+#changes the NA values to be the resting values of zero or in the row it changes to a Leave row
+
+
+dat1 <- data %>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+#this transforms the data frame into a wide format such that it can be used in NMDS
+
+
+#add up spp weights to pool for each plot
+dat1_long <- dat1 %>% 
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+#add up spp weights to pool for each plot
+
+ dat1_long1 <- dat1_long %>% 
+       mutate(species = as.character(species))
+
+
+dat1_long_noPIPA <- dat1_long1 %>% filter(species != "PIPA")
+
+dat1_summary_noPIPA <- dat1_long_noPIPA %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+#this is a df with species weight on the inside and plot & species as headers
+input_dat <- dat1 %>% column_to_rownames("plot_id")
+#this is a df with species weight on the inside and plot & species as headers
+
+
+
+  #plot side/axis 1 and 2 of 3D figure
+  
+  ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "S")
+#~~~#~~~#~~~#~~~#~~~#~~~#~~~#
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "U")
+trts <- bind_rows(trtseed,trtunseed)
+ ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
+trts <- trts  %>% 
+  filter(!is.na(row))
+
+trts <- rename(trts, seed_trt = add_column)
+trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id") %>% column_to_rownames("plot_id")
+# trtsNP is now the data frame to work off for models. It has biomass of all species except PIPA included
+trts <- trts %>% left_join(dat1_summary, by = "plot_id")
+glmtrts<- trts # this is trts before as I need to put into lme4
+trts <- trts %>% column_to_rownames("plot_id")
+
+trts$standbyrow <- paste(trts$stand, "_", trts$row)
+trtsNP$standbyrow <- paste(trtsNP$stand, "_", trtsNP$row)
+  ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
+
+trtsNP$binary<- with(trtsNP, ifelse(n_seedlings > 0, '1', '0')) %>% as.numeric()
+trtsNP$stand <- as.factor(trtsNP$stand)
+trtsNP$seed_trt <- as.factor(trtsNP$seed_trt)
+trtsNP$row <- as.factor(trtsNP$row)
+```
+
+
+
+
+```{r "These are models from masters project"}
+
+
+
+#this is a model that josh sent me
+
+fit_binary <- glmmadmb(binary ~ biomass_sum,
+ random = ~1 | stand/row, family='binomial', link='cloglog',
+ data=trtsNP)
+summary(fit_binary) ### fit_binary has a significant factor of biomass_sum
+ranef(fit_binary)
+
+
+
+#This actually has a lower AIC##
+fit_hpoiss2 <- glmmadmb(n_seedlings ~ biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+  random = ~1 | stand/row,
+  data = subset(trtsNP, n_seedlings > 0),
+  family = "truncpoiss")
+ 
+summary(fit_hpoiss2)
+plot(fit_hpoiss2$fitted)
+
+```
+
+
+```{r        "Hurdel model part 1, bionary" }
+Hurdel_mod1<- brm(n_seedlings ~  biomass_sum + (1|stand/row),
+    data = trtsNP,  family = geometric,
+   warmup = 1000, iter = 4000, chains = 5,
+   control = list(adapt_delta = 0.95)) #this model is the winner of the two
+
+summary(Hurdel_mod1)
+pp_check(Hurdel_mod1)
+Hurdel_mod1 <- add_criterion(Hurdel_mod1, c("loo"))
+
+Hurdel_mod12 <- brm(n_seedlings ~  seed_trt + (1|stand/row),
+    data = trtsNP,  family = geometric,
+   warmup = 1000, iter = 4000, chains = 5,
+   control = list(adapt_delta = 0.95))
+
+summary(Hurdel_mod12)
+pp_check(Hurdel_mod12)
+Hurdel_mod12 <- add_criterion(Hurdel_mod12, c("loo"), moment_match = TRUE)
+
+Hurdel_mod1NB<- brm(n_seedlings ~  biomass_sum + (1|stand/row), # Winner
+    data = trtsNP,  family = negbinomial,
+   warmup = 1000, iter = 4000, chains = 5, # Winner
+   control = list(adapt_delta = 0.95)) 
+summary(Hurdel_mod1NB)                            # Chicken 
+Hurdel_mod1NB <- add_criterion(Hurdel_mod1NB, c("loo")) # Dinner
+pp_check(Hurdel_mod1NB)       
+round(median(bayes_R2_res(Hurdel_mod1NB)), 2) #R2 value of 0.45
+
+
+Hurdel_mod1BER<- brm(binary ~  biomass_sum + (1|stand/row),
+    data = trtsNP,  family = bernoulli,
+   warmup = 1000, iter = 4000, chains = 5,
+   control = list(adapt_delta = 0.95)) 
+summary(Hurdel_mod1BER)
+Hurdel_mod1BER <- add_criterion(Hurdel_mod1NB, c("loo"))
+pp_check(Hurdel_mod1BER)  
+
+Hurdel_mod1BINOM<- brm(binary ~  biomass_sum + (1|stand/row),
+    data = trtsNP,  family = lognormal,
+   warmup = 1000, iter = 4000, chains = 5,
+   control = list(adapt_delta = 0.95)) 
+summary(Hurdel_mod1BINOM)
+
+#Hurdel_mod1P<- brm(n_seedlings ~  biomass_sum + (1|stand/row),
+#    data = trtsNP,  family = poisson,
+#   warmup = 1000, iter = 4000, chains = 5,
+#   control = list(adapt_delta = 0.95)) 
+#Hurdel_mod1P <- add_criterion(Hurdel_mod1P, c("loo")) #BAD BAD MODEL DIDDNT WANT TO PICK UP ANY DATAPOINT
+
+
+COMP <- loo_compare(Hurdel_mod1, Hurdel_mod1NB, Hurdel_mod1BER) # this compares the models based on the loo statistics
+print(COMP, simplify = FALSE, digits = 3) #winner is the Negitive Binomial
+```
+
+
+```{r      "hurdel model part 2, count"}
+
+
+#fit a better family to these.
+Hurdel_mod2 <- brm(n_seedlings ~  seed_trt + biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + (1|stand/row),
+                    data = subset(trtsNP, n_seedlings > 0),  family = negbinomial,
+                     warmup = 1000, iter = 4000, chains = 5,
+                      control = list(adapt_delta = 0.95))
+Hurdel_mod2 <- add_criterion(Hurdel_mod2, c("loo")) # This is the winning second model in the hurdel!!!!!!!!!
+summary(Hurdel_mod2)  # This is the winning second model in the hurdel!!!!!!!!!
+pp_check(Hurdel_mod2) # This is the winning second model in the hurdel!!!!!!!!!
+
+round(median(bayes_R2_res(Hurdel_mod2)), 2) #r2 value is 0.38
+
+### This is the best model
+#visualize
+marginal_effects(Hurdel_mod2, "biomass_sum:ppfd_total_under_per_day_m_jor_mol_m2day")
+marginal_effects(Hurdel_mod2, effects = "ppfd_total_under_per_day_m_jor_mol_m2day")
+marginal_effects(Hurdel_mod2, effects = "biomass_sum")
+
+
+pp_check(Hurdel_mod2)  # shows dens_overlay plot by default
+pp_check(Hurdel_mod2, type = "error_hist", ndraws = 11)
+pp_check(Hurdel_mod2, type = "scatter_avg", ndraws = 100)
+pp_check(Hurdel_mod2, type = "stat_2d")
+pp_check(Hurdel_mod2, type = "rootogram")
+pp_check(Hurdel_mod2, type = "loo_pit")
+
+
+#########
+Hurdel_mod3 <- brm(n_seedlings ~  seed_trt + biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + (1|stand/row),
+                    data = subset(trtsNP, n_seedlings > 0),  family = poisson,
+                     warmup = 1000, iter = 4000, chains = 5,
+                      control = list(adapt_delta = 0.95))
+Hurdel_mod3 <- add_criterion(Hurdel_mod3, c("loo"),moment_match = TRUE)
+#family = geometric had 3 observations with a pareto_k >0.7 ~ this means data doesnt fit model
+
+Hurdel_mod4 <- brm(n_seedlings ~  seed_trt + biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + (1|stand/row),
+                    data = subset(trtsNP, n_seedlings > 0),  family = student,
+                     warmup = 1000, iter = 4000, chains = 5,
+                      control = list(adapt_delta = 0.95))
+summary(Hurdel_mod4)
+pp_check(Hurdel_mod4)
+Hurdel_mod4 <- add_criterion(Hurdel_mod4, c("loo")) #,moment_match = TRUE) 
+#fit a better family to these.
+
+COMP2 <- loo_compare(Hurdel_mod2, Hurdel_mod4) # this compares the models based on the loo statistics
+print(COMP2, simplify = FALSE, digits = 3)
+
+
+### This is the best model
+fitIntLog <- brm(n_seedlings ~  seed_trt + biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + (1|stand/row),
+            data = trtsNP,  family = negbinomial,
+            warmup = 1000, iter = 5000, chains = 5,
+            control = list(adapt_delta = 0.95))
+
+summary(fitIntLog)
+pp_check(fitIntLog)
+fitIntLog <- add_criterion(fitIntLog, c("loo"))
+round(median(bayes_R2_res(fitIntLog)), 2) #r2 value is 0.46 !!!!
+
+### This is the best model
+#visualize
+marginal_effects(fitIntLog, "biomass_sum:ppfd_total_under_per_day_m_jor_mol_m2day")
+marginal_effects(fitIntLog, effects = "ppfd_total_under_per_day_m_jor_mol_m2day")
+
+
+
+
+pp_check(fitIntLog)  # shows dens_overlay plot by default
+pp_check(fitIntLog, type = "error_hist", ndraws = 11)
+pp_check(fitIntLog, type = "scatter_avg", ndraws = 100)
+pp_check(fitIntLog, type = "stat_2d")
+pp_check(fitIntLog, type = "rootogram")
+pp_check(fitIntLog, type = "loo_pit")
+
+
+
+posterior_means <- fixef(fitIntLog)
+
+# Print the results
+print(posterior_means)
+
+
+mean_estimates <- posterior_means[, "Estimate"]
+print(mean_estimates)
+
+
+#fitgeom <- brm(n_seedlings ~  seed_trt + biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + (1|stand/row),
+#            data = trtsNP, family = geometric,
+#            warmup = 1000, iter = 6000, chains = 5,
+#            control = list(adapt_delta = 0.95))
+
+#summary(fitgeom)
+#pp_check(fitgeom)
+#fitgeom <- add_criterion(fitgeom, c("loo"))
+#round(median(bayes_R2_res(fitgeom)), 2) ##0.44 !!!
+
+
+
+#COMP <- loo_compare(fitgeom, fitIntLog) # this compares the models based on the loo statistics
+#print(COMP, simplify = FALSE, digits = 3)
+#fitintlog wins again!
+
+#this means that the highest (0 elpd_diff) is the best model
+#best model is fitIntLog is the bomb.com
+
+
+#useful links:
+# https://rdrr.io/cran/brms/man/brmsfamily.html
+
+```
+

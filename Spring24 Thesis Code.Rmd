@@ -16,23 +16,24 @@ library(broom)
 library(vegan)
 library(parallel)
 library(janitor)
+library(rstan)
 detectCores() # counts how many cores the computer has # this is just good to know for the makeCluster() argument
 
-metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv") #this is my meta data from the understory community change over time study
+metadata<- read.csv("C:/Users/nyen0010/Downloads/gn_metadata_wzeros.csv") #this is my meta data from the understory community change over time study
 
 metadata$row <- as.factor(metadata$row) #CHANGE row to be a factor 
 metadata$stand <- as.factor(metadata$stand) #CHANGE stand to be a factor
  
 
 
-regendata <- read.csv("C:/Users/gn238/OneDrive - Mississippi State University/R - Copy/r_pull_from/regenplots.csv") #here is the meta data on the understory regen. This includes height of trees, metadata does not
+regendata <- read.csv("C:/Users/nyen0010/Downloads/regenplots.csv") #here is the meta data on the understory regen. This includes height of trees, metadata does not
 
 
 
 
 
 
-clus <- parallel::makeCluster(15) # creates a cluster using 15 of 16 cores
+clus <- parallel::makeCluster(13) # creates a cluster using 13 of 14 cores
 
 clusterEvalQ(clus, library(vegan)) # allow vegan to use the cluster when running any function
 
@@ -242,7 +243,9 @@ summary(m006)  #nope, no diff based on thte tands
 #lets make a glmmADMB model after what Joshua J. Puhlick sent me
 
 
-metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+#metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+
+metadata<- read.csv("C:/Users/nyen0010/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
 #import the metadata, make all empty entries into NA's
 
 metadata <- metadata %>% mutate(species_code = coalesce(species_code, species))
@@ -614,9 +617,10 @@ max(rank_flist[2,]) # n_seedlings is most highly corelated with NMDS2
 max(rank_flist[3,]) # biomass_sum is most highly corelated with NMDS3
 
 
-write.csv(flist, "C:/Users/gn238/Downloads/vector_associations.csv", row.names=T)
+#write.csv(flist, "C:/Users/gn238/Downloads/vector_associations.csv", row.names=T)
 
 ```
+
 ```{r "why we use k=3", cache=TRUE}
 
 ef_flat<-envfit(nmdsE ~ lai_2000_lin, trts, permutations = 99999, choices = 1:2, na.rm=T, iterations = 1000)
@@ -660,6 +664,7 @@ anova(ord2, by = "term", permutations = 199) #checking if a different CCA gives 
 
 
 ```
+
 ```{r}
 
  
@@ -796,6 +801,7 @@ summary(hey) # a glm model that predicts seedling based on if there was a seed t
 
 
 ```
+
 ```{r}
 library(vegan)
 trts$stand <- as.factor(trts$stand) # set stand as a factor within trts
@@ -869,6 +875,7 @@ adonis2(input_dat ~ n_seedlings, # n_seedlings is def not sig.
 
 
 ```
+
 ```{r}
 this <- read_csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv")
 this <- this %>% mutate(species_code = coalesce(species_code,species))
@@ -1177,7 +1184,7 @@ plot(ef_biomass) + plot(ef_seedlings)
 
 
 
-C:/Users/gn238/Downloads/gn_metadata_wzeros.csv
+#C:/Users/gn238/Downloads/gn_metadata_wzeros.csv
 
 
 
@@ -1328,10 +1335,6 @@ review_seeded<- data %>% summarise(seed_trt, species_code, species) %>% filter(s
   
   
   table_for_appendix<- table_for_appendix %>% left_join(data, by = "species_code") %>% summarize(species_code, species) %>% unique() %>% filter(!species = ("Unk"))
-
-```
-
-```{r}
 
 ```
 
