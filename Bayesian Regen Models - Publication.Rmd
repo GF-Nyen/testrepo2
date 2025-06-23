@@ -181,9 +181,9 @@ trtsNP$row <- as.factor(trtsNP$row)
 
 
 ```{r "These are models from masters project"}
-
-
-
+library(car)
+library(keras)
+vif(fit_hpoiss2)
 #this is a model that josh sent me
 
 fit_binary <- glmmadmb(binary ~ biomass_sum,
@@ -224,6 +224,19 @@ Hurdel_mod12 <- brm(n_seedlings ~  seed_trt + (1|stand/row),
 summary(Hurdel_mod12)
 pp_check(Hurdel_mod12)
 Hurdel_mod12 <- add_criterion(Hurdel_mod12, c("loo"), moment_match = TRUE)
+
+
+Hurdel_mod2NB<- brm(n_seedlings ~  seed_trt + (1|stand/row), # Winner?
+    data = trtsNP,  family = negbinomial,
+   warmup = 1000, iter = 4000, chains = 5, # Winner?
+   control = list(adapt_delta = 0.95)) 
+summary(Hurdel_mod2NB)
+pp_check(Hurdel_mod2NB)
+
+postmeans<- fixef(Hurdel_mod2NB)
+postmeans
+round(median(bayes_R2_res(Hurdel_mod2NB)), 2) #r2 value is 0.32
+
 
 Hurdel_mod1NB<- brm(n_seedlings ~  biomass_sum + (1|stand/row), # Winner
     data = trtsNP,  family = negbinomial,
@@ -268,7 +281,7 @@ print(COMP, simplify = FALSE, digits = 3) #winner is the Negitive Binomial
 ```{r      "hurdel model part 2, count"}
 
 
-#fit a better family to these.
+#Second model in publication!
 Hurdel_mod2 <- brm(n_seedlings ~  seed_trt + biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + (1|stand/row),
                     data = subset(trtsNP, n_seedlings > 0),  family = negbinomial,
                      warmup = 1000, iter = 4000, chains = 5,
@@ -277,7 +290,7 @@ Hurdel_mod2 <- add_criterion(Hurdel_mod2, c("loo")) # This is the winning second
 summary(Hurdel_mod2)  # This is the winning second model in the hurdel!!!!!!!!!
 pp_check(Hurdel_mod2) # This is the winning second model in the hurdel!!!!!!!!!
 
-round(median(bayes_R2_res(Hurdel_mod2)), 2) #r2 value is 0.38
+round(median(bayes_R2_res(Hurdel_mod2)), 2) #r2 value is 0.39
 coef(Hurdel_mod2)
 coef(Hurdel_mod1NB)
 ### This is the best model
@@ -316,7 +329,7 @@ COMP2 <- loo_compare(Hurdel_mod2, Hurdel_mod4) # this compares the models based 
 print(COMP2, simplify = FALSE, digits = 3)
 
 
-### This is the best model
+### This is the best model (but is not a hurdle model!)
 fitIntLog <- brm(n_seedlings ~  seed_trt + biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + (1|stand/row),
             data = trtsNP,  family = negbinomial,
             warmup = 1000, iter = 5000, chains = 5,
@@ -331,11 +344,11 @@ round(median(bayes_R2_res(fitIntLog)), 2) #r2 value is 0.46 !!!!
 #visualize
 marginal_effects(fitIntLog, "biomass_sum:ppfd_total_under_per_day_m_jor_mol_m2day")
 marginal_effects(fitIntLog, effects = "ppfd_total_under_per_day_m_jor_mol_m2day")
+#conditional_effects(fitIntLog, "biomass_sum:ppfd_total_under_per_day_m_jor_mol_m2day")
 
 
 
-
-pp_check(fitIntLog)  # shows dens_overlay plot by default
+pp_check(fitIntLog) fitIntLogpp_check(fitIntLog)  # shows dens_overlay plot by default
 pp_check(fitIntLog, type = "error_hist", ndraws = 11)
 pp_check(fitIntLog, type = "scatter_avg", ndraws = 100)
 pp_check(fitIntLog, type = "stat_2d")
