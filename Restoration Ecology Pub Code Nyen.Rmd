@@ -381,7 +381,7 @@ Line right below this is where Gap fraction should be placed along with c(2,4,"6
 #Choose environmental variables depending on choice of input dataset - lmg
 if(input_dat_choice == 1){
 #changed GN  #names(varibs)[c(2,6)] <- c("Number of Seedlings", "LAI 2000", "Gap Fraction")
-  names(varibs)[c(2,6,9)] <- c("Number of Seedlings", "Gap Fraction","Total Biomass")
+  names(varibs)[c(2,4,6,9)] <- c("Number of Seedlings", "Gap Fraction","Total Biomass")
   env.vect <- envfit(nmdsE, varibs[,c(2,6,9)], permutations = 999, na.rm = T)
 }
 if(input_dat_choice == 2){
@@ -407,6 +407,43 @@ env.ord.sig <- cbind(env.ord.sig, Variables = rownames(env.ord.sig))
 rm(env.vect, vec.ggplot, sig.env, pvals, arrows, env.ord)
 ```
 
+
+
+ Gabe Messed with this chunk below to get the spp vector - biomass on the ord
+```{r}
+#--------Extract significant environmental vectors for plotting-----------------
+
+
+
+#Choose environmental variables depending on choice of input dataset - lmg
+if(input_dat_choice == 1){
+#changed GN  #names(varibs)[c(2,6)] <- c("Number of Seedlings", "LAI 2000", "Gap Fraction")
+   names(varibs)[c(2,4,6,9)] <- c("Number of Seedlings", "Solar Radiation", "Gap Fraction","Total Biomass")
+  env.vect <- envfit(nmdsE, varibs[,c(2,4,6,9)], permutations = 999, na.rm = T)
+}
+if(input_dat_choice == 2){
+  names(varibs.stand.row)[c(3,4,9,11)] <- c("Number of Seedlings", "Openness", "Total Biomass", "Seeded Biomass")
+  env.vect <- envfit(nmdsE, varibs.stand.row[,c(3,4,9,11)], permutations = 999, na.rm = T)
+}
+
+vec.ggplot<-as.data.frame(env.vect$vectors$arrows*sqrt(env.vect$vectors$r))
+vec.ggplot$species<-rownames(vec.ggplot)
+
+#Keep only significant environmental variables - lmg
+sig.env <- as.list(env.vect$vectors)
+
+#create dataset of environmental variable vectors and p values - lmg
+pvals <- as.data.frame(sig.env$pvals)
+arrows <- as.data.frame(sig.env$arrows*sqrt(sig.env$r))
+env.ord <- cbind(arrows, pvals)
+
+
+#Subset to just significant environmental variables - lmg
+env.ord.sig<-subset(env.ord,pvals<0.05)
+env.ord.sig <- cbind(env.ord.sig, Variables = rownames(env.ord.sig))
+
+rm(env.vect, vec.ggplot, sig.env, pvals, arrows, env.ord)
+```
 
 ```{r}
 #----------Create function to calculate confidence ellipses---------------------
@@ -926,6 +963,7 @@ truncated distributions (log): "truncpoiss", "truncnbinom", "truncnbinom1" (thes
 ```{r "These are models from masters project"}
 library(car)
 library(keras)
+library(glmmTMB)
 #vif(fit_hpoiss2)
 #this is a model that josh sent me
 
@@ -935,6 +973,31 @@ fit_binary <- glmmadmb(binary ~ biomass_sum,
 summary(fit_binary) ### fit_binary has a significant factor of biomass_sum
 ranef(fit_binary)
 
+
+binary_TMB <- glmmTMB(
+  binary ~ biomass_sum + (1 | stand/row),
+  family = binomial(link = "cloglog"),
+  data = trtsNP_A
+)
+summary(binary_TMB)
+df.residual(binary_TMB)
+
+binary_TMB2 <- glmmTMB(
+  binary ~ seed_trt -1 + (1 | stand/row),
+  family = binomial(link = "cloglog"),
+  data = trtsNP_A
+)
+summary(binary_TMB2)
+df.residual(binary_TMB2)
+
+compare_performance(binary_TMB,binary_TMB2)
+ ### fit_binary has a significant factor of biomass_sum
+
+compare_performance(binary_TMB,fit_binary)
+
+compare_performance(binary_TMB,TMB2)
+
+model_performance(TMB2)
 
 
 #This actually has a lower AIC##
@@ -985,13 +1048,44 @@ mod2 <- glmmadmb(n ~ biomass_sum * ppfd_total_under_per_day_m_jor_mol_m2day + se
   random = ~1 | stand/row,
     data = subset(trtsNP_A, n > 0.001),
         family = "truncnbinom")
+```
 
 
-m.zip.TMB <- glmmTMB(n ~ seed_trt +  ppfd_total_under_per_day_m_jor_mol_m2day * biomass_sum + (1 | stand/row),    data = subset(trtsNP_A, n > 0.01), 
-                     family  = truncated_nbinom2)
-m.zip.TMB
-summary(m.zip.TMB)
-check_model(m.zip.TMB)
+```{r "final models for the publication table"}
+binary_TMB <- glmmTMB(
+  binary ~ biomass_sum + (1 | stand/row),
+  family = binomial(link = "cloglog"),
+  data = trtsNP_A
+)
+summary(binary_TMB)
+df.residual(binary_TMB)
+
+binary_TMB2 <- glmmTMB(
+  binary ~ seed_trt -1 + (1 | stand/row),
+  family = binomial(link = "cloglog"),
+  data = trtsNP_A
+)
+summary(binary_TMB2)
+df.residual(binary_TMB2)
+
+compare_performance(binary_TMB,binary_TMB2)
+
+
+
+
+
+
+
+TMB2 <- glmmTMB(n ~ seed_trt -1 +  ppfd_total_under_per_day_m_jor_mol_m2day * biomass_sum + (1 | stand/row),    data = subset(trtsNP_A, n > 0.01), 
+                     family  = truncated_nbinom2(link = "log"))
+TMB2
+summary(TMB2)
+df.residual(TMB2)
+check_model(TMB2, check = "reqq")
+
+check_model(TMB2, check = "binned_residuals")
+
+compare_performance(mod2,TMB2)
 
 ```
 
@@ -1013,10 +1107,74 @@ mod2 <- glmmadmb(n ~ biomass_sum * ppfd_total_under_per_day_m_jor_mol_m2day + se
     data = subset(trtsNP_A, n > 0.001),
         family = "truncnbinom")
  
-  summary(mod2)
 
+  summary(mod2)
+residuals(mod2)
+  check_model(mod2)
+  mod2subset<- subset(trtsNP_A, n> 0.001)
+  
+  model_performance(fit_binary)
+
+  
+  
+  
+  
+  
+  
+  check_overdispersion(m.zip.TMB)
+  check_zeroinflation(m.zip.TMB)
+  
 plot(mod2$fitted)
 check_model(mod2)
 
+mod2subset$predict.mod2<-predict(mod2, type="response")
+mod2subset$presiduals.mod2<-resid(mod2, type="pearson")
+p1<-ggplot(mod2subset,aes(predict.mod2, n))+geom_point()+
+    geom_jitter()+geom_smooth( formula = y~ log(x), method ="glm")+
+  xlab("Predicted")+ylab("Observed")
+p1
+p2<-ggplot(mod2subset, aes(predict.mod2, presiduals.mod2)) + 
+    geom_point() +
+    geom_jitter()+
+    geom_abline(intercept=0,slope=0) +
+    geom_smooth() + 
+  xlab("Predicted")+ylab("Pearson Residual")
+p1+p2
+
+
+
+trtsNP_A$predict.b<-predict(fit_binary, type="response")
+trtsNP_A$presiduals.b<-resid(fit_binary, type="pearson")
+p1<-ggplot(trtsNP_A,aes(predict.b, binary))+geom_point()+
+    geom_jitter()+geom_smooth( method ="glm", family = "binomial")+
+  xlab("Predicted")+ylab("Observed")
+p1
+p2<-ggplot(trtsNP_A, aes(predict.b, presiduals.b)) + 
+    geom_point() +
+    geom_jitter()+
+    geom_abline(intercept=0,slope=0) +
+    geom_smooth() + 
+  xlab("Predicted")+ylab("Pearson Residual")
+p1+p2
+
+
+
+
+predict(mod2)
+
+
+
+ggplot(trtsNP_A, aes(y=binary, x=biomass_sum)) + geom_point() + 
+  stat_smooth(method="glm", method.args=list(family="binomial"), se=T)
 
 ```
+
+
+
+
+
+$$Y_{it} \mid b_i \sim \mathrm{Bernoulli}(p_{it}) \nonumber \\$$
+$$\log\left(\frac{p_{it}}{1-p_{it}}\right) = \beta_0 + b_{0i} + (\beta_1 X_{it} \nonumber \\$$
+$$b_{0i} \sim N(0, \sigma_{b_0}^2) \nonumber$$
+
+
