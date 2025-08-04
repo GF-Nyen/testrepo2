@@ -196,7 +196,7 @@ varibs.stand.row$total.biomass.trans <- log10(varibs.stand.row$total.biomass)
 # Create table 2, one to show how the spp weight distrubution is spread out.
 
 ```{r}
-
+cbPalette <- c("#CC79A7", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00" )
 #dried species and row type visual in this chunk!
 
 seed.list<- c("ARBE", "PAVI", "SONU", "SOSE", "TEVI")
@@ -225,8 +225,10 @@ r2d2 <- ggplot(plot.just.seeded, aes(y=dried_weight_g, x =row, fill = species_co
   geom_boxplot(position = position_dodge(preserve='single'))  + scale_color_brewer(palette = "Spectral") + theme_minimal() + 
   labs(y= "Grams Per Meter Squared", x = "Row Type") 
 
-r2d2<- r2d2 + labs(title = "Dried Weight of Seeded Species in Seeded Stands",fill = "Species Code")
+r2d2<- r2d2 + labs(title = "Dried Weight of Seeded Species in Seeded Stands",fill = "Species Code") + scale_fill_manual(values=cbPalette)
 
+r2d2
+r2<-r2 + scale_fill_manual(values = cbPalette)
 r2
 ggsave(filename = "sppwt1.png", plot = r2, width = 23, height = 12, units = "cm")
 ggsave(filename = "sppwt2.png", plot = r2d, width = 23, height = 12, units = "cm")
@@ -328,6 +330,30 @@ plot.dat$Trt <- ifelse(plot.dat$Stand %in% 6:9, "Seeded", "Unseeded")
 plot.dat$Trt.Row <- interaction(plot.dat$Trt, plot.dat$RowType)
 plot.dat$Trt.Row <- factor(plot.dat$Trt.Row, levels = c("Seeded.L", "Seeded.TO",
                                                         "Unseeded.L", "Unseeded.TO"))
+
+
+### added below 8/4/25
+
+dat1_long <- dat1 %>%         #take the one almost ready for nmds and long it
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% #take that and cluster add it to plot
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+#add up spp weights to pool for each plot
+
+dat1_long1 <- dat1_long %>% 
+  mutate(species = as.character(species))
+
+
+dat1_long_noPIPA <- dat1_long1 %>% filter(species != "PIPA")
+
+dat1_summary_noPIPA <- dat1_long_noPIPA %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+varibs<- varibs %>% left_join(dat1_summary_noPIPA, by = "plot_id")
+varibs$trt <- ifelse(varibs$stand %in% 6:9, "Seeded", "Unseeded") %>% as.factor()
 ```
 
 
@@ -360,6 +386,10 @@ spp.ord.sig.seed <- filter(spp.ord.sig, Species == c("TEVI"))
 spp.ord.sig.seed1 <- filter(spp.ord.sig, Species == c("SONU"))
 spp.ord.sig.seed2 <- filter(spp.ord.sig, Species == c("SOSE"))
 spp.ord.sig.seed3 <- filter(spp.ord.sig, Species == c("ARBE"))
+
+
+
+
 
 ```
  # spp.ord.sig now contains all spp vectors that are significant to the ordination
@@ -491,7 +521,7 @@ p2 <- ggplot(data = plot.dat, aes(x=MDS3, y=MDS2)) + theme_bw() +
   scale_color_brewer(palette = "Spectral", name = "95% Confidence Ellipse", 
                      labels = c("Seeded + Leave", "Seeded + Take Out", 
                                 "Unseeded + Leave", "Unseeded + Take Out")) +
-  scale_fill_brewer(palette = "Spectral", name = "Treatment and Row Type",
+  scale_fill_manual(values = cbPalette , name = "Treatment and Row Type",
                     labels = c("Seeded + Leave", "Seeded + Take Out", 
                                "Unseeded + Leave", "Unseeded + Take Out")) +
   guides(fill = guide_legend(order = 1), col = guide_legend(order = 2)) +
@@ -529,7 +559,7 @@ p3 <- ggplot(data = plot.dat, aes(x=MDS1, y=MDS2)) + theme_bw() +
   scale_color_brewer(palette = "Spectral", name = "95% Confidence Ellipse", 
                      labels = c("Seeded + Leave", "Seeded + Take Out", 
                                 "Unseeded + Leave", "Unseeded + Take Out")) +
-  scale_fill_brewer(palette = "Spectral", name = "Treatment and Row Type",
+  scale_fill_manual(values = cbPalette, name = "Treatment and Row Type",
                     labels = c("Seeded + Leave", "Seeded + Take Out", 
                                "Unseeded + Leave", "Unseeded + Take Out")) +
   guides(fill = guide_legend(order = 1), col = guide_legend(order = 2)) +
@@ -628,6 +658,9 @@ dat1_summary_noPIPA <- dat1_long_noPIPA %>%
   group_by(plot_id) %>%
   summarise(biomass_sum = sum(biomass))
 
+varibs<- varibs %>% left_join(dat1_summary_noPIPA, by = "plot_id")
+
+
 #this is a df with species weight on the inside and plot & species as headers
 input_dat <- dat1 %>% column_to_rownames("plot_id")
 
@@ -717,10 +750,6 @@ max(rank_flist[3,]) # biomass_sum is most highly corelated with NMDS3
 
 # trying to have new things in the vectors of NMDS 
 
-varibs<- varibs %>% left_join(dat1_summary_noPIPA, by = "plot_id")
 
-lm(data= varibs, trt)
-
-view(varibs)
 
 ```
