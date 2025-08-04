@@ -553,7 +553,7 @@ p3 <- ggplot(data = plot.dat, aes(x=MDS1, y=MDS2)) + theme_bw() +
    #GN#                            group = as.factor(Clusters)), inherit.aes = F, 
    #GN#         size = 1.5) + 
   #GN?#      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #GN hashtaged this out to allow it to render. Unknown issue
- geom_text_repel(data=spp.ord.sig,max.iter = 1000,max.overlaps = 6, max.time = 16, aes(x=NMDS1,y=NMDS2,label=Species),size=2.2, color = "black",    inherit.aes = F, hjust = ifelse(spp.ord.sig$NMDS1 < 0, 1.2, 1)) +
+ geom_text_repel(data=spp.ord.sig,max.iter = 1000,max.overlaps = 6, max.time = 16, aes(x=NMDS1,y=NMDS2,label=Species),size=2.3, color = "black",    inherit.aes = F, hjust = ifelse(spp.ord.sig$NMDS1 < 0, 1.2, 1)) +
   geom_text_repel(data=env.ord.sig, max.overlaps = Inf, aes(x=NMDS1,y=NMDS2,label=Variables),size=5, color = "black", 
                   inherit.aes = F, hjust = ifelse(env.ord.sig$NMDS1 < 0, 1.2, 1.4)) +
   scale_color_brewer(palette = "Spectral", name = "95% Confidence Ellipse", 
@@ -625,7 +625,7 @@ p3
 #save these to the local github
 ggsave(filename = "ord1pub.png", plot = p1, width = 23, height = 12, units = "cm")
 ggsave(filename = "ord2pub.png", plot = p2, width = 23, height = 13, units = "cm")
-ggsave(filename = "ord3pub.png", plot = p3, width = 23, height = 13, units = "cm")
+ggsave(filename = "ord3pub.png", plot = p3, width = 19, height = 12, units = "cm")
 #------------------------Second Plot view---------------------------------------
 ```
 
@@ -673,7 +673,7 @@ adonis2(input_dat.no.rare ~ Trt,
         sqrt.dist = F,
         by = "terms")
 
-view(plot.dat)
+#view(plot.dat)
 
 varibs_test <- varibs
 column_to_rownames(varibs_test, var = "plot_id")
