@@ -1,0 +1,1180 @@
+---
+title: "Restoration Ecology Pub Nyen"
+author: "GN"
+date: "2025-06-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#------------------------------------------------------------------------------#
+#                          Jones Center at Ichauway                            #
+#                                                                              #
+# Title:           Gabe Nyen data analysis                                     #
+# Authors:         Gabe Nyen, Lisa Giencke                                     #
+# Last updated:    September 17, 2024                                          #
+# Last updated by: lmg                                                         #
+# Objective:       Examine differences in leave and take out rows with and     # 
+#                  without seeded ground cover species                         #
+#                  following Hurricane Micheal                                 #
+#                                                                              #
+#------------------------------------------------------------------------------#
+
+library(tidyverse)
+library(vegan)
+library(broom)
+library(janitor)
+library(ggplot2)
+library(ggrepel)
+library(indicspecies)
+library(glmmADMB)
+library(broom)
+library(vegan)
+library(parallel)
+library(janitor)
+library("latex2exp")
+library("foreign")
+library(MuMIn)
+SEED <- 1900
+set.seed(SEED)
+
+rm(list=ls(all=T))
+```
+
+
+```{r}
+#setwd("R:/plant_ecology/misc_project_directories/nyen")
+#metadata<- read.csv("C:/Users/gaben/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+metadata<- read.csv("C:/Users/nyen0010/OneDrive - Joseph W. Jones Ecological Research Center/gn_metadata_wzeros.csv", header=T, na.strings="")
+#------------------------Choose analysis to run---------------------------------
+
+#Choose input dataset (dat1 = all plot weights; dat2 = plot weights combined by 
+#stand/row type)
+input_dat_choice <- 1
+
+#----------------------Read dataset and dataset prep----------------------------
+
+#You WILL HAVE TO CANGE THIS TO YOUR COMUPTER LOCATION
+#metadata<- read.csv("gn_metadata_wzeros.csv", header=T, na.strings="")
+#import the metadata, make all empty entries into NA's
+
+#Check out data formatting - lmg
+str(metadata)
+summary(metadata)
+
+#This is listed as Aristida fasciculata, but that's not a species.
+#I made the assumption that it was meant to be Agalinis fasciculata. - lmg
+metadata$species_code[which(metadata$species_code == "ARFA")] <- "AGFA"
+
+#Both codes are used in dataset, but are for the same species. - lmg
+metadata$species_code[which(metadata$species_code == "ERST")] <- "ERSG"
+
+#Both codes are used in dataset, but are for the same species. - lmg
+metadata$species_code[which(metadata$species_code == "LACA")] <- "LACD"
+
+#Listed as Rhnychosia deformus in the dataset, but I assume it to be 
+#Rhynchosia difformis - lmg
+metadata$species_code[which(metadata$species_code == "RHDE")] <- "RHDI"
+
+# I think I remember looking at this with Alisen in 2023, but RHMI (even though
+# it's on the Ichauway species list), is not considered to occur in this part of 
+# Georgia). I assume it to be RHDI. - lmg
+
+metadata$species_code[which(metadata$species_code == "RHMI")] <- "RHDI"
+  
+metadata <- metadata %>% mutate(species_code = coalesce(species_code, species))
+head(metadata, 20)
+#replace all blank species with the unknown official names listed in the species_code column
+```
+
+
+```{r}
+#Make sure all listed species codes look ok - lmg
+unique(metadata$species_code)[order(unique(metadata$species_code))]
+
+data <-metadata %>% filter(!is.na(species_code))
+#get rid of the entries without a species code after the coalesce.
+
+data <- data %>% filter(!plot_id=="9-6-K")
+#takes out a plot that didnt have data to it
+```
+
+## Keep stand 3 in the dataset
+The following chunk will not be run - GN
+```{r}
+#Remove stand 3 because it's so compositionally different - lmg
+#data <- data %>% filter(!stand==3)
+```
+
+
+```{r}
+data<- data  %>% replace_na(list(row = "L"))
+
+#Log transform weight data - lmg
+data$wt_trans <- log10(data$dried_weight_g+0.01)+2
+
+#Look at data distributions - lmg
+#ggplot(data, aes(x=dried_weight_g)) + geom_histogram(bins = 25)
+#ggplot(data, aes(x=wt_trans)) + geom_histogram(bins = 25)
+
+
+varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, 
+                             ppfd_total_under_per_day_m_jor_mol_m2day, 
+                             gap_fraction, row, stand, transect) %>%
+  distinct()
+#create a variable data frame
+#I dont think that the error code maters
+
+
+varibs<- varibs  %>% replace_na(list(n_seedlings=0, openness=0, lai_2000_lin = 0, 
+                                     ppfd_total_under_per_day_m_jor_mol_m2day = 0, 
+                                     gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
+#changes the NA values to be the resting values of zero or in the row it changes to a Leave row
+#removed plot_id to avoid error message - lmg
+
+#Visually plot environmental variables against one another - lmg
+pairs(varibs[,2:6])
+```
+
+
+```{r}
+#Create dataset of weights for each stand/row type combination
+data.stand.row <- aggregate(data$dried_weight_g, by=list(data$row, data$stand, 
+                                                         data$species_code), sum)
+names(data.stand.row) <- c("row", "stand", "species_code", "dried_weight_g")
+
+#Calculate the number of plots per stand/row type combination - lmg
+plots <- unique(data[c("stand", "plot_id", "row")])
+plot.counts <- aggregate(plots$stand, by=list(plots$row, plots$stand), length)
+names(plot.counts) <- c("row", "stand", "num_plots")
+
+#Combine weight and plot number datasets to get a mean weight per stand/
+#row type combination, then transform mean weight data
+data.stand.row <- merge(data.stand.row, plot.counts, by = c("stand", "row"))
+data.stand.row$mean.wt <- data.stand.row$dried_weight_g/data.stand.row$num_plots
+data.stand.row <- data.stand.row[order(data.stand.row$stand, data.stand.row$row, 
+                                       data.stand.row$species_code, decreasing = F), ]
+data.stand.row$wt_trans <- log10(data.stand.row$dried_weight_g+0.0001)+3
+
+#Look at data distributions - lmg
+ggplot(data.stand.row, aes(x=dried_weight_g)) + geom_histogram(bins = 25)
+ggplot(data.stand.row, aes(x=wt_trans)) + geom_histogram(bins = 25)
+```
+# the following pivot table uses wt_trans as apposed to non transformed data.
+Must follow up to test if the wt_trans is 1.) needed, 2.) still significant
+3.) if all other tests use the same wt_trans data.
+
+
+```{r}
+dat1 <- data %>% dplyr::select(plot_id, species_code, wt_trans) %>%
+  pivot_wider(names_from = species_code, values_from = wt_trans, values_fn = sum, values_fill = 0)
+#this transforms the data frame into a wide format such that it can be used in NMDS
+#view(dat1) # dat1 is now ready to go into an NMDS engine 
+
+dat2 <- data.stand.row %>% dplyr::select(stand, row, species_code, wt_trans) %>%
+  pivot_wider(names_from = species_code, values_from = wt_trans, values_fn = sum, values_fill = 0)
+#this transforms the data frame into a wide format such that it can be used in NMDS - lmg
+```
+Here, dat2 is just stands and row types to feed into an NMNDS
+
+```{r}
+#Create dataset of environmental variables to pair with stand/row type weight 
+#data - lmg
+varibs.stand.row <- aggregate(varibs[,c(2:6)], by=list(varibs$row, varibs$stand), mean)
+names(varibs.stand.row)[1:2] <- c("row", "stand")
+varibs.stand.row$total.biomass <- aggregate(data.stand.row$mean.wt, 
+                                            by=list(data.stand.row$row, 
+                                                    data.stand.row$stand), sum)[,3]
+varibs.stand.row$total.biomass.trans <- log10(varibs.stand.row$total.biomass)
+```
+# Unsure if the above chunk is needed.. 
+
+
+# Create table 2, one to show how the spp weight distrubution is spread out.
+
+```{r}
+
+#dried species and row type visual in this chunk!
+
+cbPalette <- c("#CC79A7", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00" )
+
+
+seed.list<- c("ARBE", "PAVI", "SONU", "SOSE", "TEVI")
+
+seed.list.table <- data %>% filter(species_code %in% seed.list)
+head(seed.list.table)
+seed.list.table$trt <- ifelse(seed.list.table$stand %in% 6:9, "Seeded", "Unseeded")
+plot.just.seeded<- seed.list.table %>% filter(trt == "Seeded")
+head(plot.just.seeded)
+
+r2 <- ggplot(seed.list.table, aes(y=dried_weight_g, x =row, fill = species_code)) + 
+  geom_boxplot(position = position_dodge(preserve='single'))  +  theme_minimal() + 
+  labs(y= "Grams Per Meter Squared", x = "Row Type") +facet_wrap(~trt)
+   
+
+r2 <- r2 + labs(title= "Dried Weight of Seeded Species", subtitle = "Seperated by Treatment and by Row Type", fill = "Species Code") +  scale_fill_manual(values=cbPalette)
+
+
+r2d <- ggplot(seed.list.table, aes(y=dried_weight_g, x =row, fill = species_code)) + 
+  geom_boxplot(position = position_dodge(preserve='single'))  + scale_color_brewer(palette = "Spectral") + theme_minimal() + 
+  labs(y= "Grams Per Meter Squared", x = "Row Type") 
+
+r2d<- r2d + labs(title = "Dried Weight of Seeded Species Across All Plots",fill = "Species Code")
+
+r2d2 <- ggplot(plot.just.seeded, aes(y=dried_weight_g, x =row, fill = species_code)) + 
+  geom_boxplot(position = position_dodge(preserve='single'))  + scale_color_brewer(palette = "Spectral") + theme_minimal() + 
+  labs(y= "Grams Per Meter Squared", x = "Row Type") 
+
+r2d2<- r2d2 + labs(title = "Dried Weight of Seeded Species in Seeded Stands",fill = "Species Code")
+
+r2
+
+
+#ggsave(filename = "sppwt1.svg", plot = r2, width = 23, height = 12, units = "cm")
+#ggsave(filename = "sppwt2.png", plot = r2d, width = 23, height = 12, units = "cm")
+#ggsave(filename = "sppwt3.png", plot = r2d2, width = 23, height = 12, units = "cm")
+
+
+#dried species and row type visual in this chunk!
+```
+
+
+
+```{r}
+#Create dataset of seeded weights - lmg
+seeded.weight <- aggregate(subset(data.stand.row$mean.wt, 
+                                  data.stand.row$species_code %in% 
+                                    c("ARBE", "PAVI", "SONU", "SOSE", "TEVI")),
+                           by=list(subset(data.stand.row$row, data.stand.row$species_code %in% 
+                                            c("ARBE", "PAVI", "SONU", "SOSE", "TEVI")),
+                                   subset(data.stand.row$stand, data.stand.row$species_code %in% 
+                                            c("ARBE", "PAVI", "SONU", "SOSE", "TEVI"))), sum)
+names(seeded.weight) <- c("row", "stand", "seeded.biomass")
+
+#Combine environmental variables and seeded weights, then transform seeded
+#weights, and add treatment (seeded/unseeded) - lmg
+varibs.stand.row <- merge(varibs.stand.row, seeded.weight, by=c("stand", "row"), all.x = T)
+varibs.stand.row<- varibs.stand.row  %>% replace_na(list(seeded.biomass=0))
+varibs.stand.row$seeded.biomass.trans <- log10(varibs.stand.row$seeded.biomass+0.01)+2
+varibs.stand.row$trt <- ifelse(varibs.stand.row$stand %in% 6:9, "Seeded", "Unseeded")
+
+#Once again visualize data - lmg
+#ggplot(varibs.stand.row, aes(x=sqrt(total.biomass.trans))) + geom_histogram(bins = 25)
+
+#Visualizing/testing space for environmental variables
+#boxplot(varibs.stand.row$seeded.biomass ~ interaction(varibs.stand.row$row, varibs.stand.row$trt))  
+#summary(aov(varibs.stand.row$seeded.biomass ~ as.factor(varibs.stand.row$row)*as.factor(varibs.stand.row$trt)))))
+#TukeyHSD(aov(varibs.stand.row$seeded.biomass ~ as.factor(varibs.stand.row$row)*as.factor(varibs.stand.row$trt)))))
+
+
+
+if(input_dat_choice ==1){
+  input_dat <- dat1 %>% column_to_rownames("plot_id")
+}
+if(input_dat_choice == 2){
+  input_dat <- as.data.frame(dat2[,3:dim(dat2)[2]])
+}
+
+#Create presence dataset to be used in rare species removals
+input_dat.pa <- input_dat > 0
+input_dat.pa[which(input_dat.pa == "TRUE")] <- 1
+
+#Remove rare species (those that occur in less than 3 stand/row type combinations
+#from dataset
+input_dat.no.rare <- input_dat
+input_dat.no.rare[dim(input_dat)[1]+1,] <- colSums(input_dat.pa[,] > 0)
+input_dat.no.rare <- input_dat.no.rare[1:(dim(input_dat)[1]), input_dat.no.rare[dim(input_dat)[1] + 1,] > 2]
+
+#gabe
+#rm(input_dat.pa, input_dat) # re-ran and removed 7/15 to use in spp richness tests
+#gabe
+
+
+
+
+
+#--------------------------------Run ordination---------------------------------
+nmdsE <- metaMDS(comm = input_dat.no.rare,
+                 autotransform = FALSE,
+                 distance = "bray",
+                 engine = "monoMDS",
+                 k = 3,
+                 #parallel = clus, #this is only needed when using 
+                 #all of the computer cores acting as clusters. 
+                 #Need a ton of cores before this is useful!
+                 weakties = TRUE,
+                 model = "global",
+                 maxit = 5000,
+                 try = 2000, # Use 2000, 200 for quick process
+                 trymax = 2000) #Use 2000, 200 for quick process
+nmdsE
+nmdsE$stress
+
+
+#----------------Create dataset for plotting ordination results-----------------
+#Choose which plot identifiers to pull based on input dataset choice - lmg
+if(input_dat_choice == 1){
+  plot.dat <- as.data.frame(cbind(varibs$stand, varibs$row, (nmdsE$points)))
+}
+if(input_dat_choice == 2){
+  plot.dat <- as.data.frame(cbind(varibs.stand.row$stand, varibs.stand.row$row, 
+                                (nmdsE$points)))
+}
+
+names(plot.dat)[1:2] <- c("Stand", "RowType")
+plot.dat[,3] <- as.numeric(plot.dat[,3])
+plot.dat[,4] <- as.numeric(plot.dat[,4])
+plot.dat[,5] <- as.numeric(plot.dat[,5])
+plot.dat$Trt <- ifelse(plot.dat$Stand %in% 6:9, "Seeded", "Unseeded")
+plot.dat$Trt.Row <- interaction(plot.dat$Trt, plot.dat$RowType)
+plot.dat$Trt.Row <- factor(plot.dat$Trt.Row, levels = c("Seeded.L", "Seeded.TO",
+                                                        "Unseeded.L", "Unseeded.TO"))
+```
+
+
+```{r}
+#--------------Extract significant species vectors for plotting-----------------
+
+#Calculate species vectors - lmg
+spp.vect <- envfit(nmdsE, input_dat.no.rare, permutations = 999, choices = c(1:2))
+
+vec.ggplot <- as.data.frame(spp.vect$vectors$arrows*sqrt(spp.vect$vectors$r))
+vec.ggplot$species <- rownames(vec.ggplot)
+
+#Keep only significant species - lmg
+sig.species <- as.list(spp.vect$vectors)
+
+#creating dataset of species vectors and p values - lmg
+pvals <- as.data.frame(sig.species$pvals)
+arrows <- as.data.frame(sig.species$arrows*sqrt(sig.species$r))
+spp.ord <- cbind(arrows, pvals)
+
+#Subset to just significant species - lmg
+spp.ord.sig <-subset(spp.ord,pvals<0.05) # gn changed to .04 from .05
+spp.ord.sig <- cbind(spp.ord.sig, Species = rownames(spp.ord.sig))
+
+rm(spp.vect, vec.ggplot, sig.species, pvals, arrows, spp.ord)
+
+#-------------------
+# extract the seeded species to put them into different color in the ordination
+spp.ord.sig.seed <- filter(spp.ord.sig, Species == c("TEVI"))
+spp.ord.sig.seed1 <- filter(spp.ord.sig, Species == c("SONU"))
+spp.ord.sig.seed2 <- filter(spp.ord.sig, Species == c("SOSE"))
+
+
+```
+ # spp.ord.sig now contains all spp vectors that are significant to the ordination
+
+
+
+Line right below this is where Gap fraction should be placed along with c(2,4,"6")
+
+" the first "names(varibs)[c(2,4,6)]" is has a 4 for lai. I removed 7/8/25 for pub."
+```{r}
+#--------Extract significant environmental vectors for plotting-----------------
+
+
+
+#Choose environmental variables depending on choice of input dataset - lmg
+if(input_dat_choice == 1){
+#changed GN  #names(varibs)[c(2,6)] <- c("Number of Seedlings", "LAI 2000", "Gap Fraction")
+  names(varibs)[c(2,4,6,9)] <- c("Number of Seedlings", "Gap Fraction","Total Biomass")
+  env.vect <- envfit(nmdsE, varibs[,c(2,6,9)], permutations = 999, na.rm = T)
+}
+if(input_dat_choice == 2){
+  names(varibs.stand.row)[c(3,4,9,11)] <- c("Number of Seedlings", "Openness", "Total Biomass", "Seeded Biomass")
+  env.vect <- envfit(nmdsE, varibs.stand.row[,c(3,4,9,11)], permutations = 999, na.rm = T)
+}
+
+vec.ggplot<-as.data.frame(env.vect$vectors$arrows*sqrt(env.vect$vectors$r))
+vec.ggplot$species<-rownames(vec.ggplot)
+
+#Keep only significant environmental variables - lmg
+sig.env <- as.list(env.vect$vectors)
+
+#create dataset of environmental variable vectors and p values - lmg
+pvals <- as.data.frame(sig.env$pvals)
+arrows <- as.data.frame(sig.env$arrows*sqrt(sig.env$r))
+env.ord <- cbind(arrows, pvals)
+
+#Subset to just significant environmental variables - lmg
+env.ord.sig<-subset(env.ord,pvals<0.05)
+env.ord.sig <- cbind(env.ord.sig, Variables = rownames(env.ord.sig))
+
+rm(env.vect, vec.ggplot, sig.env, pvals, arrows, env.ord)
+```
+
+
+
+ Gabe Messed with this chunk below to get the spp vector - biomass on the ord
+```{r}
+#--------Extract significant environmental vectors for plotting-----------------
+
+
+
+#Choose environmental variables depending on choice of input dataset - lmg
+if(input_dat_choice == 1){
+#changed GN  #names(varibs)[c(2,6)] <- c("Number of Seedlings", "LAI 2000", "Gap Fraction")
+   names(varibs)[c(2,4,6,9)] <- c("Number of Seedlings", "Solar Radiation", "Gap Fraction","Total Biomass")
+  env.vect <- envfit(nmdsE, varibs[,c(2,4,6,9)], permutations = 999, na.rm = T)
+}
+if(input_dat_choice == 2){
+  names(varibs.stand.row)[c(3,4,9,11)] <- c("Number of Seedlings", "Openness", "Total Biomass", "Seeded Biomass")
+  env.vect <- envfit(nmdsE, varibs.stand.row[,c(3,4,9,11)], permutations = 999, na.rm = T)
+}
+
+vec.ggplot<-as.data.frame(env.vect$vectors$arrows*sqrt(env.vect$vectors$r))
+vec.ggplot$species<-rownames(vec.ggplot)
+
+#Keep only significant environmental variables - lmg
+sig.env <- as.list(env.vect$vectors)
+
+#create dataset of environmental variable vectors and p values - lmg
+pvals <- as.data.frame(sig.env$pvals)
+arrows <- as.data.frame(sig.env$arrows*sqrt(sig.env$r))
+env.ord <- cbind(arrows, pvals)
+
+
+#Subset to just significant environmental variables - lmg
+env.ord.sig<-subset(env.ord,pvals<0.05)
+env.ord.sig <- cbind(env.ord.sig, Variables = rownames(env.ord.sig))
+
+rm(env.vect, vec.ggplot, sig.env, pvals, arrows, env.ord)
+```
+
+```{r}
+#----------Create function to calculate confidence ellipses---------------------
+
+
+#Prettied up - species
+# function for ellipsess - just run this, is used later
+#taken from the excellent stackoverflow Q+A: http://stackoverflow.com/questions/13794419/plotting-ordiellipse-function-from-vegan-package-onto-nmds-plot-created-in-ggplo
+veganCovEllipse <- function (cov, center = c(0, 0), scale = 1, npoints = 100) 
+{
+  theta <- (0:npoints) * 2 * pi/npoints
+  Circle <- cbind(cos(theta), sin(theta))
+  t(center + scale * t(Circle %*% chol(cov)))
+}
+
+df.ell <- data.frame()
+for(i in unique(plot.dat$Trt.Row)){
+  df.ell <- rbind(df.ell, cbind(as.data.frame(with(plot.dat[plot.dat$Trt.Row == i,],
+                                                   veganCovEllipse(cov.wt(cbind(MDS1,MDS2),wt=rep(1/length(MDS1),length(MDS1)))$cov,center=c(mean(MDS1),mean(MDS2))))),
+                                Clusters=i))
+}
+
+
+df.ell$Clusters <- factor(df.ell$Clusters, levels = c("Seeded.L", "Seeded.TO",
+                                                       "Unseeded.L", "Unseeded.TO"))
+```
+
+
+```{r}
+#-----------------------------Plot ordination-----------------------------------
+
+ggplot(data = plot.dat, aes(x=MDS1, y=MDS2)) + theme_bw() + 
+  geom_point(data = plot.dat, aes(fill = Trt.Row), size = 4, pch = 22) + 
+  geom_segment(data=spp.ord.sig,aes(x=0,xend=NMDS1,y=0,yend=NMDS2),
+               arrow = arrow(length = unit(0.3, "cm")),colour="grey64", size = 0.8,
+              inherit.aes=FALSE) + 
+  geom_segment(data=env.ord.sig,aes(x=0,xend=NMDS1,y=0,yend=NMDS2),
+               arrow = arrow(length = unit(0.3, "cm")),colour="black", size = 0.8,
+               inherit.aes=FALSE) +   
+  geom_path(data = df.ell, aes(x=MDS1, y=MDS2, color = as.factor(Clusters), 
+                               group = as.factor(Clusters)), inherit.aes = F, 
+            size = 1.5) + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_text_repel(data=spp.ord.sig,aes(x=NMDS1,y=NMDS2,label=Species),size=4, color = "black", 
+                  inherit.aes = F, hjust = ifelse(spp.ord.sig$NMDS1 < 0, 1.2, 1)) +
+  geom_text_repel(data=env.ord.sig,aes(x=NMDS1,y=NMDS2,label=Variables),size=4, color = "black", 
+                  inherit.aes = F, hjust = ifelse(env.ord.sig$NMDS1 < 0, 1.2, 1)) +
+  scale_color_brewer(palette = "Spectral", name = "95% Confidence Ellipse", 
+                     labels = c("Seeded + Leave", "Seeded + Take Out", 
+                                "Unseeded + Leave", "Unseeded + Take Out")) +
+  scale_fill_brewer(palette = "Spectral", name = "Plot Type",
+                    labels = c("Seeded + Leave", "Seeded + Take Out", 
+                               "Unseeded + Leave", "Unseeded + Take Out")) +
+  guides(fill = guide_legend(order = 1), col = guide_legend(order = 2)) +
+  theme(legend.position = "right") 
+
+#------------------------Second Plot view---------------------------------------
+
+p2 <- ggplot(data = plot.dat, aes(x=MDS1, y=MDS2)) + theme_bw() + 
+  geom_point(data = plot.dat, aes(fill = Trt.Row), alpha=0.65, size = 3, pch = 21) + 
+  geom_segment(data=spp.ord.sig,aes(x=0,xend=NMDS1,y=0,yend=NMDS2),
+               arrow = arrow(length = unit(0.3, "cm")),colour="grey64", alpha=0.8, size = 0.7,
+               inherit.aes=FALSE) + 
+  geom_segment(data=spp.ord.sig.seed,aes(x=0,xend=NMDS1,y=0,yend=NMDS2), #seeded spp
+               arrow = arrow(length = unit(0.3, "cm")),colour="red4", size = 1.1,
+              inherit.aes=FALSE) +
+  geom_segment(data=spp.ord.sig.seed1,aes(x=0,xend=NMDS1,y=0,yend=NMDS2), #seeded spp
+               arrow = arrow(length = unit(0.3, "cm")),colour="red4", size = 1.1,
+              inherit.aes=FALSE) +
+  geom_segment(data=spp.ord.sig.seed2,aes(x=0,xend=NMDS1,y=0,yend=NMDS2), #seeded spp
+               arrow = arrow(length = unit(0.3, "cm")),colour="red4", size = 1.1,
+              inherit.aes=FALSE) +
+  geom_segment(data=env.ord.sig,aes(x=0,xend=NMDS1,y=0,yend=NMDS2),
+               arrow = arrow(length = unit(0.3, "cm")),colour="black", size = 0.8,
+               inherit.aes=FALSE) +   
+  #GN # geom_path(data = df.ell, aes(x=MDS1, y=MDS2, color = as.factor(Clusters), 
+   #GN#                            group = as.factor(Clusters)), inherit.aes = F, 
+   #GN#         size = 1.5) + 
+  #GN?#      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #GN hashtaged this out to allow it to render. Unknown issue
+ geom_text_repel(data=spp.ord.sig,max.iter = 1000,max.overlaps = 7, max.time = 16, aes(x=NMDS1,y=NMDS2,label=Species),size=2.4, color = "black",    inherit.aes = F, hjust = ifelse(spp.ord.sig$NMDS1 < 0, 1.2, 1)) +
+  geom_text_repel(data=env.ord.sig, max.overlaps = Inf, aes(x=NMDS1,y=NMDS2,label=Variables),size=5, color = "black", 
+                  inherit.aes = F, hjust = ifelse(env.ord.sig$NMDS1 < 0, 1.2, 1.4)) +
+  scale_fill_manual(values=cbPalette, name = "Treatment and Row Type",
+                    labels = c("Seeded + Leave", "Seeded + Take Out", 
+                               "Unseeded + Leave", "Unseeded + Take Out"))+
+  #scale_fill_brewer(palette = "Spectral", name = "Treatment and Row Type",
+   #                 labels = c("Seeded + Leave", "Seeded + Take Out", 
+    #                           "Unseeded + Leave", "Unseeded + Take Out")) +
+  guides(fill = guide_legend(order = 1), col = guide_legend(order = 2)) +
+  theme(legend.position = "right") + labs(x = "Axis 1", y = "Axis 2")
+
+
+
+
+
+
+
+# Gabe - Experiment with only keeping the lables for the sig species on the plot and the envionmental vectors. That may look cleaner
+
+p1 <- ggplot(data = plot.dat, aes(x=MDS1, y=MDS2)) + theme_bw() + 
+  geom_point(data = plot.dat, aes(fill = Trt.Row), alpha=0.65, size = 3, pch = 21) + 
+  geom_segment(data=spp.ord.sig,aes(x=0,xend=NMDS1,y=0,yend=NMDS2),
+               arrow = arrow(length = unit(0.3, "cm")),colour="grey64", alpha=0.8, size = 0.7,
+               inherit.aes=FALSE) + 
+  geom_segment(data=spp.ord.sig.seed,aes(x=0,xend=NMDS1,y=0,yend=NMDS2), #seeded spp
+               arrow = arrow(length = unit(0.3, "cm")),colour="red4", size = 1.1,
+              inherit.aes=FALSE) +
+  geom_segment(data=spp.ord.sig.seed1,aes(x=0,xend=NMDS1,y=0,yend=NMDS2), #seeded spp
+               arrow = arrow(length = unit(0.3, "cm")),colour="red4", size = 1.1,
+              inherit.aes=FALSE) +
+  geom_segment(data=spp.ord.sig.seed2,aes(x=0,xend=NMDS1,y=0,yend=NMDS2), #seeded spp
+               arrow = arrow(length = unit(0.3, "cm")),colour="red4", size = 1.1,
+              inherit.aes=FALSE) +
+  geom_segment(data=env.ord.sig,aes(x=0,xend=NMDS1,y=0,yend=NMDS2),
+               arrow = arrow(length = unit(0.3, "cm")),colour="black", size = 0.8,
+               inherit.aes=FALSE) +   
+  #GN # geom_path(data = df.ell, aes(x=MDS1, y=MDS2, color = as.factor(Clusters), 
+   #GN#                            group = as.factor(Clusters)), inherit.aes = F, 
+   #GN#         size = 1.5) + 
+  #GN?#      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #GN hashtaged this out to allow it to render. Unknown issue
+#GN 7/8/25  geom_text_repel(data=spp.ord.sig,aes(x=NMDS1,y=NMDS2,label=Species),size=4, color = "black", 
+#GN 7/8/25                   inherit.aes = F, hjust = ifelse(spp.ord.sig$NMDS1 < 0, 1.2, 1)) +
+  #seeded spp
+  geom_text_repel(data=spp.ord.sig.seed,aes(x=NMDS1,y=NMDS2,label=Species),size=4, color = "black",    inherit.aes = F, hjust = ifelse(spp.ord.sig.seed$NMDS1 < 0, 1.2, 1)) +
+  #seeded spp
+  #seeded spp
+  geom_text_repel(data=spp.ord.sig.seed1,aes(x=NMDS1,y=NMDS2,label=Species),size=4, color = "black",    inherit.aes = F, hjust = ifelse(spp.ord.sig.seed1$NMDS1 < 0, 1.2, 1)) +
+  #seeded spp
+  #seeded spp
+  geom_text_repel(data=spp.ord.sig.seed2,aes(x=NMDS1,y=NMDS2,label=Species),size=4, color = "black",    inherit.aes = F, hjust = ifelse(spp.ord.sig.seed2$NMDS1 < 0, 1.2, 1)) +
+  #seeded spp
+
+  geom_text_repel(data=env.ord.sig,aes(x=NMDS1,y=NMDS2,label=Variables),size=5, color = "black", 
+                  inherit.aes = F, hjust = ifelse(env.ord.sig$NMDS1 < 0, 1.2, 1.4)) +
+  
+
+  
+  scale_color_brewer(palette = "Spectral", name = "95% Confidence Ellipse", 
+                     labels = c("Seeded + Leave", "Seeded + Take Out", 
+                                "Unseeded + Leave", "Unseeded + Take Out")) +
+  scale_fill_brewer(palette = "Spectral", name = "Treatment and Row Type",
+                    labels = c("Seeded + Leave", "Seeded + Take Out", 
+                               "Unseeded + Leave", "Unseeded + Take Out")) +
+  guides(fill = guide_legend(order = 1), col = guide_legend(order = 2)) +
+  theme(legend.position = "right") + labs(x = "Axis 1", y = "Axis 2")
+
+p1
+p2
+#save these to the local github
+ggsave(filename = "ord1pub.png", plot = p1, width = 23, height = 12, units = "cm")
+ggsave(filename = "ord2pub.png", plot = p2, width = 20, height = 12, units = "cm")
+ggsave(filename = "ord2pub.png", plot = p2 , width = 18, height = 12, units = "cm")
+#------------------------Second Plot view---------------------------------------
+```
+
+
+```{r}
+#------------------------Indicator species analysis-----------------------------
+
+
+ind.spp <- multipatt(input_dat.no.rare, plot.dat$Trt.Row)
+summary(ind.spp)
+
+
+###====================Gabe Tests==========================
+#prep a dried weight vector# 
+dat1_long <- dat1 %>%         #take the one almost ready for nmds and long it
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% #take that and cluster add it to plot
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+#add up spp weights to pool for each plot
+
+dat1_long1 <- dat1_long %>% 
+  mutate(species = as.character(species))
+
+
+dat1_long_noPIPA <- dat1_long1 %>% filter(species != "PIPA")
+
+dat1_summary_noPIPA <- dat1_long_noPIPA %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+#this is a df with species weight on the inside and plot & species as headers
+input_dat <- dat1 %>% column_to_rownames("plot_id")
+
+#prep a dried weight vector#
+
+adonis2(input_dat.no.rare ~ Trt,
+        plot.dat,
+        permutations = 99999,
+        method = "bray",
+        sqrt.dist = F,
+        by = "terms")
+
+view(plot.dat)
+
+varibs_test <- varibs
+column_to_rownames(varibs_test, var = "plot_id")
+varibs_test <- varibs_test %>% clean_names()
+
+
+ef_test<- envfit(nmdsE ~ Trt, plot.dat, permutations = 99999, choices = 1:3, na.rm = T, iterations = 1000)
+ef_test
+
+ef_test1<- envfit(nmdsE ~ openness, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations = 1000)
+ef_test1
+
+ef <- envfit(nmdsE ~ lai_2000_lin, varibs_test, permutations = 99999, choices = 1:3, na.rm=T, iterations = 1000)
+ef
+
+ef1 <- envfit(nmdsE ~ stand, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+ef1 #Significant ! ! !
+
+ef2 <- envfit(nmdsE ~ n_seedlings, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+ef2
+
+ef3 <- envfit(nmdsE ~ seed_trt, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+ef3 #Significant ! ! !
+# how was this tested? what does this test do? look at : https://www.flutterbys.com.au/stats/tut/tut15.1.html
+
+efstand <- envfit(nmdsE ~ stand, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+efstand
+
+ef4 <- envfit(nmdsE ~ ppfd_total_under_per_day_m_jor_mol_m2day, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+ef4
+
+ef5 <- envfit(nmdsE ~ openness, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+ef5
+
+ef6 <- envfit(nmdsE ~ gap_fraction, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+ef6
+
+ef7 <- envfit(nmdsE ~ biomass_sum, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+ef7
+
+ef8 <- envfit(nmdsE ~ row, varibs_test, permutations = 99999, choices = 1:3, na.rm = T, iterations= 1000)
+ef8
+
+f <-tibble(ef$vectors$arrows[1:3]) %>% rename(lai_2000_lin= "ef$vectors$arrows[1:3]")
+f1<-tibble(ef1$vectors$arrows[1:3]) %>% rename(stand= "ef1$vectors$arrows[1:3]")
+f2<-tibble(ef2$vectors$arrows[1:3]) %>% rename(n_seedlings= "ef2$vectors$arrows[1:3]")
+#f3<-tibble(ef3$vectors$arrows[1:3]) %>% rename(seed_trt= "ef3$vectors$arrows[1:3]")
+f4<-tibble(ef4$vectors$arrows[1:3]) %>% 
+  rename(ppfd_total_under_per_day_m_jor_mol_m2day= "ef4$vectors$arrows[1:3]")
+f5<-tibble(ef5$vectors$arrows[1:3]) %>% rename(openness= "ef5$vectors$arrows[1:3]")
+f6<-tibble(ef6$vectors$arrows[1:3]) %>% rename(gap_fraction= "ef6$vectors$arrows[1:3]")
+f7<-tibble(ef7$vectors$arrows[1:3]) %>% rename(biomass_sum= "ef7$vectors$arrows[1:3]")
+#f8<-tibble(ef8[["factors"]][["centroids"]]) %>% rename(row= ef8[["factors"]][["centroids"]])
+
+
+flist <- bind_cols(f,f1,f2,f4,f5,f6,f7) %>% as.data.frame()
+rownames(flist) = c("NMDS1", 
+                    "NMDS2",
+                    "NMDS3")
+flist
+
+rank_flist<-abs(flist)
+max(rank_flist[1,]) # Stand is most highly corelated with NMDS1
+max(rank_flist[2,]) # n_seedlings is most highly corelated with NMDS2
+max(rank_flist[3,]) # biomass_sum is most highly corelated with NMDS3
+
+
+#write.csv(flist, "C:/Users/gn238/Downloads/vector_associations.csv", row.names=T)
+
+
+#--------------------------------The end----------------------------------------
+```
+
+# test for spp richness here
+```{r "richness test"}
+#test for spp richness!
+
+diversity(input_dat.no.rare)
+
+d.rich <- diversity(input_dat, index = 'shannon')
+head(d.rich)
+
+
+df <- data.frame('plot_id' = names(d.rich), 'richness' = d.rich)
+
+df.rich <- df %>% left_join(varibs, by= "plot_id")
+
+df.rich$trt <- ifelse(df.rich$stand %in% 6:9, "Seeded", "Unseeded")
+
+seed.rich<-df.rich %>% filter(trt== "Seeded") 
+seed.rich$richness %>% mean() # 2.627552
+# these are both Shannon diversity indexes
+unseed.rich<-df.rich %>% filter(trt== "Unseeded") 
+unseed.rich$richness %>% mean() # 2.44572
+
+
+
+# species richness means
+sppnum <- specnumber(input_dat)
+# add this collomn and repeate for the paper
+print(sppnum)
+df <- data.frame('plot_id' = names(sppnum), 'spp' = sppnum)
+head(sppnum)
+df.richyrich <- df %>% left_join(df.rich, by= "plot_id")
+
+seed.richyrich<-df.richyrich %>% filter(trt== "Seeded") 
+seed.richyrich$spp %>% mean() # 15.5
+# these are both species richness means
+unseed.richrich<-df.richyrich %>% filter(trt== "Unseeded") 
+unseed.richrich$spp %>% mean() # 13.5
+# species richness means
+# test for spp richness!
+```
+
+# test seeded percent presence in seeded stands
+```{r}
+
+#test how many plots that were seeded have the seeded species in them
+
+data$trt <- ifelse(data$stand %in% 6:9, "Seeded", "Unseeded")
+                   
+varibs$trt <- ifelse(varibs$stand %in% 6:9, "Seeded", "Unseeded")
+varibs %>% unique(by= "plot_id") %>% filter(trt == "Seeded") %>%
+  nrow()  # seeded stands in the study, n = 69
+
+varibs %>% unique(by= "plot_id") %>% filter(trt == "Unseeded") %>%
+  nrow() # unseeded stands in the study, n = 77
+
+data %>% filter(species_code == "SOSE") %>% filter(trt == "Seeded") %>% unique(by= "plot_id") %>% nrow() #11
+percent_plots_SOSE <- 11/69*100
+print(percent_plots_SOSE) #15.94203% of seeded plots had SOSE
+data %>% filter(species_code == "ARBE") %>% filter(trt == "Seeded") %>% unique(by= "plot_id") %>% nrow() #10
+percent_plots_ARBE <- 10/69*100
+print(percent_plots_ARBE) # 14.49275% of seeded plots had ARBE
+data %>% filter(species_code == "TEVI") %>% filter(trt == "Seeded") %>% unique(by= "plot_id") %>% nrow() #9
+percent_plots_TEVI <- 9/69*100
+print(percent_plots_TEVI) # 13.04348% of seeded plots had TEVI
+data %>% filter(species_code == "PAVI") %>% filter(trt == "Seeded") %>% unique(by= "plot_id") %>% nrow() #8
+percent_plots_PAVI <- 8/69*100
+print(percent_plots_PAVI) # 11.5942% of seeded plots had PAVI
+data %>% filter(species_code == "SONU") %>% filter(trt == "Seeded") %>% unique(by= "plot_id") %>% nrow() #51
+percent_plots_SONU <- 51/69*100
+print(percent_plots_SONU) # 73.91304% of seeded plots had SONU
+
+print(c(percent_plots_SONU,percent_plots_PAVI,percent_plots_TEVI,percent_plots_ARBE,percent_plots_SOSE))
+
+
+
+```
+# Regen Models with averaging per plot
+
+
+```{r}
+
+regen<- read.csv("C:/Users/nyen0010/OneDrive - Joseph W. Jones Ecological Research Center/Restoration Ecology Article/regenplotcounts.csv")
+
+regen <- regen %>% summarize(PLOT_ID, QUADRAT.,REGEN.COUNT) %>% janitor::clean_names()
+
+regen
+
+average_counts <- regen %>%
+  group_by(plot_id) %>% tally(regen_count)
+
+average_counts$ave_seedlings <- average_counts$n/3
+average_counts
+
+```
+
+
+
+
+#regen models
+
+
+
+```{r}
+#lets make a glmmADMB model after what Joshua J. Puhlick sent me
+metadata %>% filter(plot_id== "5-2-B")
+
+#metadata<- read.csv("C:/Users/gn238/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+
+metadata<- read.csv("C:/Users/nyen0010/Downloads/gn_metadata_wzeros.csv", header=T, na.strings="")
+#import the metadata, make all empty entries into NA's
+
+metadata <- metadata %>% mutate(species_code = coalesce(species_code, species))
+head(metadata, 20)
+#replace all blank species with the unknown official names listed in the species_code column
+
+data <-metadata %>% filter(!is.na(species_code))
+#get rid of the entries without a species code after the coalesce.
+
+data <- data %>% filter(!plot_id=="9-6-K")
+#takes out a plot that didnt have data to it
+
+varibs <- data %>% summarise(plot_id, n_seedlings, openness, lai_2000_lin, ppfd_total_under_per_day_m_jor_mol_m2day, gap_fraction, row, stand, transect) %>%
+ distinct()
+#create a variable data frame
+
+varibs<- varibs  %>% replace_na(list(plot_id=0, n_seedlings=0, openness=0, lai_2000_lin = 0, ppfd_total_under_per_day_m_jor_mol_m2day = 0, gap_fraction= 0, row = "L", stand=0, standbyrow= 0))
+#changes the NA values to be the resting values of zero or in the row it changes to a Leave row
+
+
+dat1 <- data %>% dplyr::select(plot_id, species_code, dried_weight_g) %>%
+  pivot_wider(names_from = species_code, values_from = dried_weight_g, values_fn = sum, values_fill = 0)
+#this transforms the data frame into a wide format such that it can be used in NMDS
+```
+Possibly dont need the above chunk?
+
+```{r}
+#add up spp weights to pool for each plot
+dat1_long <- dat1 %>% 
+  pivot_longer(!plot_id, names_to = "species", values_to = "biomass")
+
+dat1_summary <- dat1_long %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+#add up spp weights to pool for each plot
+
+ dat1_long1 <- dat1_long %>% 
+       mutate(species = as.character(species))
+
+
+dat1_long_noPIPA <- dat1_long1 %>% filter(species != "PIPA")
+
+dat1_summary_noPIPA <- dat1_long_noPIPA %>% 
+  group_by(plot_id) %>%
+  summarise(biomass_sum = sum(biomass))
+
+#this is a df with species weight on the inside and plot & species as headers
+input_dat <- dat1 %>% column_to_rownames("plot_id")
+#this is a df with species weight on the inside and plot & species as headers
+
+
+
+  #plot side/axis 1 and 2 of 3D figure
+  
+  ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
+seeded6 <- varibs %>% filter(stand == 6)
+seeded7 <- varibs %>% filter(stand == 7)
+seeded8 <- varibs %>% filter(stand == 8)
+seeded9 <- varibs %>% filter(stand == 9)
+trtseed <- bind_rows(seeded6,seeded7,seeded8,seeded9)
+trtseed <- trtseed %>% add_column(add_column = "S")
+#~~~#~~~#~~~#~~~#~~~#~~~#~~~#
+unseed3 <- varibs %>% filter(stand == 3)
+unseed4 <- varibs %>% filter(stand == 4)
+unseed5 <- varibs %>% filter(stand == 5)
+unseed10 <- varibs %>% filter(stand == 10)
+trtunseed <- bind_rows(unseed3,unseed4,unseed5,unseed10)
+trtunseed <- trtunseed %>% add_column(add_column = "U")
+trts <- bind_rows(trtseed,trtunseed)
+ ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
+trts <- trts  %>% 
+  filter(!is.na(row))
+
+rm(unseed3,unseed4,unseed5,unseed10,seeded6,seeded7,seeded8,seeded9)
+
+
+trts <- rename(trts, seed_trt = add_column)
+trtsNP <- trts %>% left_join(dat1_summary_noPIPA, by= "plot_id") %>% column_to_rownames("plot_id")
+# trtsNP is now the data frame to work off for models. It has biomass of all species except PIPA included
+trts <- trts %>% left_join(dat1_summary, by = "plot_id")
+glmtrts<- trts # this is trts before as I need to put into lme4
+trts <- trts %>% column_to_rownames("plot_id")
+
+trts$standbyrow <- paste(trts$stand, "_", trts$row)
+trtsNP$standbyrow <- paste(trtsNP$stand, "_", trtsNP$row)
+  ### This is to add a seeding treatment to trts by way of using varibs in the chain ###
+
+trtsNP$binary<- with(trtsNP, ifelse(n_seedlings > 0, '1', '0')) %>% as.numeric()
+trtsNP$stand <- as.factor(trtsNP$stand)
+trtsNP$seed_trt <- as.factor(trtsNP$seed_trt)
+trtsNP$row <- as.factor(trtsNP$row)
+```
+
+
+```{r}
+
+
+df_with_rownames <- trtsNP %>% 
+  rownames_to_column(var = "plot_id")
+
+
+trtsNP_A<- df_with_rownames %>% left_join(average_counts, by = "plot_id") %>% mutate(n = replace_na(n, 0)) %>% 
+  mutate(ave_seedlings = replace_na(ave_seedlings, 0.00))
+
+fivenum(trtsNP_A$ave_seedlings)
+
+trtsNP_A <- trtsNP_A %>%
+  mutate("scale_biomass" = scale(biomass_sum))
+
+
+
+```
+
+
+```{r}
+
+ggplot(trtsNP_A, aes(trtsNP_A$biomass_sum, ave_seedlings, col = seed_trt)) +
+  geom_point() +
+  geom_smooth(method = "glm", formula = y ~ x) +
+ facet_wrap(~ stand)
+
+ggplot(trtsNP_A, aes(trtsNP_A$gap_fraction, n, col = seed_trt)) +
+  geom_point() +
+  geom_smooth(method = "glm", formula = y ~ x) #+
+ # facet_wrap(~ stand)
+
+
+
+
+
+```
+
+truncated distributions (log): "truncpoiss", "truncnbinom", "truncnbinom1" (these can be used to fit hurdle models)
+
+
+
+
+```{r "These are models from masters project"}
+library(car)
+library(keras)
+library(glmmTMB)
+#vif(fit_hpoiss2)
+#this is a model that josh sent me
+
+fit_binary <- glmmadmb(binary ~ biomass_sum,
+ random = ~1 | stand/row, family='binomial', link='cloglog',
+ data=trtsNP)
+summary(fit_binary) ### fit_binary has a significant factor of biomass_sum
+ranef(fit_binary)
+
+
+binary_TMB <- glmmTMB(
+  binary ~ biomass_sum + (1 | stand/row),
+  family = binomial(link = "cloglog"),
+  data = trtsNP_A
+)
+summary(binary_TMB)
+df.residual(binary_TMB)
+
+binary_TMB2 <- glmmTMB(
+  binary ~ seed_trt -1 + (1 | stand/row),
+  family = binomial(link = "cloglog"),
+  data = trtsNP_A
+)
+summary(binary_TMB2)
+df.residual(binary_TMB2)
+
+compare_performance(binary_TMB,binary_TMB2)
+ ### fit_binary has a significant factor of biomass_sum
+
+compare_performance(binary_TMB,fit_binary)
+
+compare_performance(binary_TMB,TMB2)
+
+model_performance(TMB2)
+
+
+#This actually has a lower AIC##
+fit_hpoiss2 <- glmmadmb(trtsNP_A$ave_seedlings ~ biomass_sum*ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+  random = ~1 | stand/row,
+  #data = subset(trtsNP, n_seedlings > 0),
+  data = trtsNP_A,
+  family = "poisson")
+ 
+summary(fit_hpoiss2)
+plot(fit_hpoiss2$fitted)
+
+
+```
+
+```{r}
+
+library(MASS) # for fitting negative binomial regression models
+library(pscl) # for fitting zero-inflated models
+
+m.zinb <- zeroinfl(n ~ biomass_sum + ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt | biomass_sum, data = trtsNP_A, dist="negbin", link = "logit")
+summary(m.zinb) # This is the best model thus far in a zeroinflated 
+
+
+trtsNP_A$predict.m.zinb<-predict(m.zinb, type="response")
+trtsNP_A$presiduals.m.zinb<-resid(m.zinb, type="pearson")
+p1<-ggplot(trtsNP_A, aes(predict.m.zinb, n))+geom_point()+
+    geom_jitter()+geom_abline(intercept=0,slope=1)+
+  xlab("Predicted")+ylab("Observed")
+p1
+p2<-ggplot(trtsNP_A, aes(predict.m.zinb, presiduals.m.zinb)) + 
+    geom_point() +
+    geom_jitter()+
+    geom_abline(intercept=0,slope=0) +
+    geom_smooth() + 
+  xlab("Predicted")+ylab("Pearson Residual")
+p1+p2
+
+```
+
+Make all this with random effects of stand and treatment
+```{r}
+m.zinb <- zeroinfl(n ~ biomass_sum + ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt | biomass_sum, data = trtsNP_A, dist="negbin", link = "logit")
+summary(m.zinb)
+# Equivalent zero-inflated Poisson models
+
+mod2 <- glmmadmb(n ~ biomass_sum * ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+  random = ~1 | stand/row,
+    data = subset(trtsNP_A, n > 0.001),
+        family = "truncnbinom")
+```
+
+
+```{r "final models for the publication table"}
+binary_TMB <- glmmTMB(
+  binary ~ biomass_sum + (1 | stand/row),
+  family = binomial(link = "cloglog"),
+  data = trtsNP_A
+)
+summary(binary_TMB)
+df.residual(binary_TMB)
+
+binary_TMB2 <- glmmTMB(
+  binary ~ seed_trt -1 + (1 | stand/row),
+  family = binomial(link = "cloglog"),
+  data = trtsNP_A
+)
+summary(binary_TMB2)
+df.residual(binary_TMB2)
+
+compare_performance(binary_TMB,binary_TMB2)
+
+
+
+
+
+
+
+TMB2 <- glmmTMB(n ~ seed_trt -1 +  ppfd_total_under_per_day_m_jor_mol_m2day * biomass_sum + (1 | stand/row),    data = subset(trtsNP_A, n > 0.01), 
+                     family  = truncated_nbinom2(link = "log"))
+TMB2
+summary(TMB2)
+df.residual(TMB2)
+check_model(TMB2, check = "reqq")
+
+check_model(TMB2, check = "binned_residuals")
+
+compare_performance(mod2,TMB2)
+
+```
+
+```{r "These are models from masters project"}
+
+#This is the best new hurdel model 7/24/25 - Hurdel 1
+fit_binary <- glmmadmb(binary ~ biomass_sum ,
+ random = ~1 | stand/row, family='binomial', link='cloglog',
+ data=trtsNP_A)
+summary(fit_binary) ### fit_binary has a significant factor of biomass_sum
+
+ranef(fit_binary)
+check_model(fit_binary)
+resid(fit_binary)
+
+#This is the best new hurdel model 7/24/25 - Hurdel 2
+mod2 <- glmmadmb(n ~ biomass_sum * ppfd_total_under_per_day_m_jor_mol_m2day + seed_trt,
+  random = ~1 | stand/row,
+    data = subset(trtsNP_A, n > 0.001),
+        family = "truncnbinom")
+ 
+
+  summary(mod2)
+residuals(mod2)
+  check_model(mod2)
+  mod2subset<- subset(trtsNP_A, n> 0.001)
+  
+  model_performance(fit_binary)
+
+  
+  
+  
+  
+  
+  
+  check_overdispersion(m.zip.TMB)
+  check_zeroinflation(m.zip.TMB)
+  
+plot(mod2$fitted)
+check_model(mod2)
+
+mod2subset$predict.mod2<-predict(mod2, type="response")
+mod2subset$presiduals.mod2<-resid(mod2, type="pearson")
+p1<-ggplot(mod2subset,aes(predict.mod2, n))+geom_point()+
+    geom_jitter()+geom_smooth( formula = y~ log(x), method ="glm")+
+  xlab("Predicted")+ylab("Observed")
+p1
+p2<-ggplot(mod2subset, aes(predict.mod2, presiduals.mod2)) + 
+    geom_point() +
+    geom_jitter()+
+    geom_abline(intercept=0,slope=0) +
+    geom_smooth() + 
+  xlab("Predicted")+ylab("Pearson Residual")
+p1+p2
+
+
+
+trtsNP_A$predict.b<-predict(fit_binary, type="response")
+trtsNP_A$presiduals.b<-resid(fit_binary, type="pearson")
+p1<-ggplot(trtsNP_A,aes(predict.b, binary))+geom_point()+
+    geom_jitter()+geom_smooth( method ="glm", family = "binomial")+
+  xlab("Predicted")+ylab("Observed")
+p1
+p2<-ggplot(trtsNP_A, aes(predict.b, presiduals.b)) + 
+    geom_point() +
+    geom_jitter()+
+    geom_abline(intercept=0,slope=0) +
+    geom_smooth() + 
+  xlab("Predicted")+ylab("Pearson Residual")
+p1+p2
+
+
+
+
+predict(mod2)
+
+
+
+ggplot(trtsNP_A, aes(y=binary, x=biomass_sum)) + geom_point() + 
+  stat_smooth(method="glm", method.args=list(family="binomial"), se=T)
+
+```
+
+
+
+
+
+$$Y_{it} \mid b_i \sim \mathrm{Bernoulli}(p_{it}) \nonumber \\$$
+$$\log\left(\frac{p_{it}}{1-p_{it}}\right) = \beta_0 + b_{0i} + (\beta_1 X_{it} \nonumber \\$$
+$$b_{0i} \sim N(0, \sigma_{b_0}^2) \nonumber$$
+
+
