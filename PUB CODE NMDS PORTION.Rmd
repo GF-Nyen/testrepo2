@@ -750,6 +750,24 @@ max(rank_flist[3,]) # biomass_sum is most highly corelated with NMDS3
 
 # trying to have new things in the vectors of NMDS 
 
+seededwt<- dplyr::filter(varibs, trt== "seeded")
+seededwt
 
+
+average_weights <- varibs %>%
+  group_by(trt) %>%
+  summarise(mean_dried_weight = mean(biomass_sum, na.rm = TRUE),
+    sd_dried_weight = sd(biomass_sum, na.rm = TRUE)
+  )
+
+average_weights2 <- dat1_summary %>%
+  summarise(mean_dried_weight = mean(biomass_sum, na.rm = TRUE))
+
+
+mean(average_weights$mean_dried_weight)
+
+
+checking<- dat1_long %>% filter(plot_id == "10-4-I")
+sum(checking$biomass)
 
 ```
